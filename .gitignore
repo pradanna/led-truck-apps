@@ -34,3 +34,9 @@ Thumbs.db
 /tools/streaming/go2rtc.yaml
 /tools/streaming/*.zip
 
+# Private system and conversation documentation
+/PROJECT_DOCUMENTATION.md
+/PROJECT_DEPLOYMENT_AND_SETUP_MANUAL.md
+/docs/
+/scratch/
+

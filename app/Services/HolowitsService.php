@@ -113,9 +113,9 @@ streams:
     - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
 
   truck_2_ch1:
-    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
-  truck_2_ch2:
     - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
+  truck_2_ch2:
+    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
 YAML;
 
         @file_put_contents($yamlPath, $yamlContent);
@@ -124,8 +124,8 @@ YAML;
         $streamsToPush = [
             'truck_1_ch1' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
             'truck_1_ch2' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
-            'truck_2_ch1' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
-            'truck_2_ch2' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
+            'truck_2_ch1' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
+            'truck_2_ch2' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
         ];
 
         foreach ($streamsToPush as $name => $url) {

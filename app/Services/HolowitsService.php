@@ -36,7 +36,7 @@ class HolowitsService
                 'http_port' => 70,
                 'rtsp_port' => 70,
                 'username' => 'admin',
-                'password' => 'Mobilled9731',
+                'password' => 'Mobilled9729',
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
                     'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Traffic & AI)', 'type' => 'traffic'],

@@ -63,6 +63,38 @@ class ReportController extends Controller
             'estimated_reach' => 0,
         ];
 
+        // Background auto-archive live traffic to DB for today
+        try {
+            \App\Models\AiTrafficDailyLog::recordTraffic('truck_1', date('Y-m-d'), $truck1Traffic, 'B 9731 JXS');
+            \App\Models\AiTrafficDailyLog::recordTraffic('truck_2', date('Y-m-d'), $truck2Traffic, 'B 9729 JXS');
+        } catch (\Throwable $e) {}
+
+        // If date filter is in the past, sum up from database archive
+        $isTodayOnly = ($dateFrom === date('Y-m-d') && $dateTo === date('Y-m-d'));
+        if (!$isTodayOnly) {
+            $query = \App\Models\AiTrafficDailyLog::whereBetween('log_date', [$dateFrom, $dateTo]);
+            if ($truckFilter !== 'all') {
+                $query->where('truck_id', $truckFilter);
+            }
+            $archivedLogs = $query->get();
+
+            if ($archivedLogs->count() > 0) {
+                $dbMotor = $archivedLogs->sum('motorcycles');
+                $dbCars = $archivedLogs->sum('cars');
+                $dbPeds = $archivedLogs->sum('pedestrians');
+                $dbBuses = $archivedLogs->sum('buses_trucks');
+                $dbTotal = $dbMotor + $dbCars + $dbPeds + $dbBuses;
+
+                $grandSummary = [
+                    'total_motorcycles' => $dbMotor,
+                    'total_cars' => $dbCars,
+                    'total_pedestrians' => $dbPeds,
+                    'total_buses' => $dbBuses,
+                    'grand_total_traffic' => $dbTotal,
+                ];
+            }
+        }
+
         if ($truckFilter === 'truck_1') {
             $trafficSummary = [
                 'total_motorcycles' => $truck1Traffic['motorcycles'] ?? 0,

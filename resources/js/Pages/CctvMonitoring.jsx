@@ -145,7 +145,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
     }
   };
 
-  // Handle Snapshot
+  // Handle Snapshot & Direct Download to Device (PC / Phone)
   const handleTakeSnapshot = async (truckId, channelId) => {
     setSnapshotFeedback(`Mengambil snapshot ${channelId}...`);
     try {
@@ -159,13 +159,43 @@ export default function CctvMonitoring({ monitoringData = {} }) {
         body: JSON.stringify({ truck_id: truckId, channel: channelId })
       });
       const json = await res.json();
-      if (json.success) {
-        setSnapshotFeedback(`Berhasil! Snapshot ${channelId} tersimpan.`);
-        setTimeout(() => setSnapshotFeedback(''), 3000);
+      
+      if (json.success && json.image_url) {
+        // Trigger direct browser download
+        const now = new Date();
+        const dateStr = now.toISOString().slice(0, 10);
+        const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
+        const truckLabel = truckId === 'truck_1' ? 'Truk01' : 'Truk02';
+        const fileName = `Snapshot_${truckLabel}_${channelId}_${dateStr}_${timeStr}.jpg`;
+
+        const downloadLink = document.createElement('a');
+        downloadLink.href = json.image_url;
+        downloadLink.download = fileName;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        setSnapshotFeedback(`✓ Snapshot ${channelId} berhasil diunduh ke perangkat!`);
+        setTimeout(() => setSnapshotFeedback(''), 3500);
+      } else {
+        // Fallback: If snapshot frame is not immediately returned as base64, try frame.jpeg
+        const streamKey = `${truckId}_${channelId.toLowerCase()}`;
+        const fallbackUrl = `/api/webrtc/api/frame.jpeg?src=${streamKey}`;
+        
+        const downloadLink = document.createElement('a');
+        downloadLink.href = fallbackUrl;
+        downloadLink.download = `Snapshot_${truckId}_${channelId}_${Date.now()}.jpg`;
+        downloadLink.target = '_blank';
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+
+        setSnapshotFeedback(`✓ Snapshot ${channelId} sedang diunduh!`);
+        setTimeout(() => setSnapshotFeedback(''), 3500);
       }
     } catch (e) {
-      setSnapshotFeedback('Gagal mengambil snapshot');
-      setTimeout(() => setSnapshotFeedback(''), 2000);
+      setSnapshotFeedback('Gagal mengambil snapshot kamera');
+      setTimeout(() => setSnapshotFeedback(''), 2500);
     }
   };
 

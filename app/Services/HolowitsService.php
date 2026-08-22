@@ -25,8 +25,8 @@ class HolowitsService
                 'username' => 'admin',
                 'password' => 'Mobilled9731',
                 'channels' => [
-                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
-                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Traffic & AI)', 'type' => 'traffic'],
+                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
+                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
                 ]
             ],
             'truck_2' => [
@@ -38,8 +38,8 @@ class HolowitsService
                 'username' => 'admin',
                 'password' => 'Mobilled9729',
                 'channels' => [
-                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
-                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Traffic & AI)', 'type' => 'traffic'],
+                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
+                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
                 ]
             ]
         ];

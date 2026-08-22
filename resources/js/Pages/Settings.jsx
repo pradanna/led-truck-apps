@@ -324,19 +324,7 @@ export default function Settings({ truckConfigs = {}, globalIntegrations = {}, a
           }`}
         >
           <Server className="w-4 h-4" />
-          <span>Kredensial API Eksternal</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('nvr')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap ${
-            activeTab === 'nvr'
-              ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
-              : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
-          }`}
-        >
-          <Video className="w-4 h-4" />
-          <span>Konfigurasi NVR CCTV Truk</span>
+          <span>Kredensial API Eksternal (GPS & Novastar)</span>
         </button>
 
         <button

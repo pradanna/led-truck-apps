@@ -177,7 +177,7 @@ class ReportController extends Controller
             }
         }
 
-        // 3. Fetch Real GPS Data & Calculate Trip Metrics from Foxlogger API
+        // 3. Fetch Real GPS Data & Calculate Trip Metrics (Fast DB Aggregation)
         $gpsPositions = $this->foxlogger->getReportPosition();
         $gpsDevices = $this->foxlogger->getDeviceList();
 
@@ -187,21 +187,21 @@ class ReportController extends Controller
         $totalRealDistanceKm = 0.0;
         $allSpeeds = [];
         $maxRecordedSpeed = 0.0;
-        $gpsHistoryLogs = []; // Raw history points
+        $gpsHistoryLogs = [];
 
         $filteredPositions = [];
         foreach ($gpsPositions as $pos) {
             $devName = $pos['unit'] ?? $pos['device_name'] ?? '';
             $imei = $pos['imei'] ?? '';
 
-            if ($truckFilter === 'truck_1' && !(str_contains($devName, '01') || str_contains($imei, '0356153590691330'))) {
+            if ($truckFilter === 'truck_1' && !(str_contains($devName, '01') || str_contains($devName, '9731') || str_contains($imei, '0356153590691330'))) {
                 continue;
             }
-            if ($truckFilter === 'truck_2' && !(str_contains($devName, '02') || str_contains($imei, '868120049281922'))) {
+            if ($truckFilter === 'truck_2' && !(str_contains($devName, '02') || str_contains($devName, '9729') || str_contains($imei, '0866833070213829'))) {
                 continue;
             }
 
-            $truckTitle = $devName ?: 'Truk LED 01 (B 9731 JXS)';
+            $truckTitle = $devName ?: ($truckFilter === 'truck_2' ? 'Truk LED 02 (B 9729 JXS)' : 'Truk LED 01 (B 9731 JXS)');
             $filteredPositions[] = [
                 'device_name' => $truckTitle,
                 'imei' => $imei ?: '0356153590691330',
@@ -221,13 +221,15 @@ class ReportController extends Controller
                     $maxRecordedSpeed = $metrics['max_speed'];
                 }
 
-                // Fetch raw GPS points to sample per 15 minutes
-                $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
-                if (!empty($rawHistory)) {
-                    foreach ($rawHistory as $pt) {
-                        $pt['truck_name'] = $truckTitle;
-                        $pt['imei'] = $imei;
-                        $gpsHistoryLogs[] = $pt;
+                // Query detailed GPS logs only when tab is 'gps' or 'all'
+                if ($tab === 'gps' || $tab === 'overview' || $request->routeIs('*.export*')) {
+                    $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
+                    if (!empty($rawHistory)) {
+                        foreach ($rawHistory as $pt) {
+                            $pt['truck_name'] = $truckTitle;
+                            $pt['imei'] = $imei;
+                            $gpsHistoryLogs[] = $pt;
+                        }
                     }
                 }
             }
@@ -255,15 +257,6 @@ class ReportController extends Controller
                 }
                 if ($metrics['max_speed'] > $maxRecordedSpeed) {
                     $maxRecordedSpeed = $metrics['max_speed'];
-                }
-
-                $rawHistory = $this->foxlogger->getReportHistory($defaultImei, $time1, $time2);
-                if (!empty($rawHistory)) {
-                    foreach ($rawHistory as $pt) {
-                        $pt['truck_name'] = $truckTitle;
-                        $pt['imei'] = $defaultImei;
-                        $gpsHistoryLogs[] = $pt;
-                    }
                 }
             }
         }

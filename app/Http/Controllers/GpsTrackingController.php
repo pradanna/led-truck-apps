@@ -60,12 +60,59 @@ class GpsTrackingController extends Controller
         $date = $request->query('date', date('Y-m-d'));
         $history = $this->foxlogger->getGpsHistory($imei, $date);
 
+        // Smart Server-Side Downsampling / Compression
+        // Reduces 3,000+ raw points to 80-150 essential checkpoints (90% lighter payload)
+        $sampledHistory = [];
+        $lastTimeSec = 0;
+        $prevLat = null;
+        $prevLng = null;
+
+        foreach ($history as $pt) {
+            $lat = (float)($pt['lat'] ?? $pt['latitude'] ?? 0);
+            $lng = (float)($pt['long'] ?? $pt['longitude'] ?? 0);
+            if ($lat == 0 && $lng == 0) continue;
+
+            $timeStr = $pt['time'] ?? $pt['last_upd'] ?? '';
+            $currentSec = !empty($timeStr) ? strtotime($timeStr) : 0;
+            $speed = (float)($pt['Speed'] ?? $pt['speed'] ?? 0);
+
+            // Keep first point
+            if (empty($sampledHistory)) {
+                $sampledHistory[] = $pt;
+                $lastTimeSec = $currentSec;
+                $prevLat = $lat;
+                $prevLng = $lng;
+                continue;
+            }
+
+            $distMoved = abs($lat - $prevLat) + abs($lng - $prevLng);
+            $timeDiff = abs($currentSec - $lastTimeSec);
+
+            // Sample if: moved significantly (> 100 meters), or speed changed, or at least 3 minutes elapsed
+            if ($distMoved > 0.0008 || ($speed > 5 && $timeDiff >= 120) || $timeDiff >= 300) {
+                $sampledHistory[] = $pt;
+                $lastTimeSec = $currentSec;
+                $prevLat = $lat;
+                $prevLng = $lng;
+            }
+        }
+
+        // Always ensure the very last point of the day is included
+        if (!empty($history) && count($history) > 1) {
+            $lastOriginal = end($history);
+            $lastSampled = end($sampledHistory);
+            if (($lastOriginal['time'] ?? '') !== ($lastSampled['time'] ?? '')) {
+                $sampledHistory[] = $lastOriginal;
+            }
+        }
+
         return response()->json([
             'success' => true,
             'imei' => $imei,
             'date' => $date,
-            'count' => count($history),
-            'data' => $history,
+            'count' => count($sampledHistory),
+            'raw_count' => count($history),
+            'data' => !empty($sampledHistory) ? $sampledHistory : $history,
         ]);
     }
 

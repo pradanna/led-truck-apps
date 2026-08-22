@@ -169,13 +169,19 @@ YAML;
             ];
         }
 
+        // Quick memory cache per truck to avoid repeating slow timeouts during page loads
+        $cacheKey = "holowits_truck_nvr_status_{$truck['id']}";
+        if (Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
+        }
+
         try {
             // Check NVR reachability: Support Holowits & Hikvision ISAPI
             $isHikvision = false;
             $rangeData = [];
             $deviceModel = 'NVR';
 
-            // 1. Try Holowits API first (Check both https and http)
+            // 1. Try Holowits API first (Check both https and http with fast 1s timeout)
             $urlsToTry = [$baseUrl];
             if ($isHttps) {
                 $urlsToTry[] = "http://{$ip}:{$port}";
@@ -185,7 +191,7 @@ YAML;
 
             foreach ($urlsToTry as $targetUrl) {
                 try {
-                    $response = Http::timeout(2)
+                    $response = Http::timeout(1)
                         ->withoutVerifying()
                         ->post("{$targetUrl}/API/Login/Range", ['version' => '1.0', 'data' => []]);
 
@@ -329,7 +335,7 @@ YAML;
                     } catch (\Throwable $aiErr) {}
                 }
 
-                return [
+                $res = [
                     'online' => true,
                     'status' => 'ONLINE',
                     'status_message' => "Terkoneksi ke {$deviceModel}",
@@ -337,6 +343,8 @@ YAML;
                     'channels' => $channels,
                     'traffic' => $trafficData,
                 ];
+                Cache::put($cacheKey, $res, now()->addSeconds(30));
+                return $res;
             } else {
                 $statusMsg = 'NVR Sedang Standby / Menolak Koneksi';
             }
@@ -344,8 +352,8 @@ YAML;
             $statusMsg = 'DISCONNECTED (Host ' . $ip . ':' . $port . ' Unreachable / Timeout)';
         }
 
-        // Return real Disconnected status if server unreachable
-        return [
+        // Return real Disconnected status if server unreachable and cache for 20s
+        $offlineRes = [
             'online' => false,
             'status' => 'DISCONNECTED',
             'status_message' => $statusMsg,
@@ -353,6 +361,8 @@ YAML;
             'channels' => $this->buildOfflineChannels($truck, $statusMsg),
             'traffic' => $this->getEmptyTraffic('DISCONNECTED'),
         ];
+        Cache::put($cacheKey, $offlineRes, now()->addSeconds(20));
+        return $offlineRes;
     }
 
     /**

@@ -15,26 +15,26 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Super Admin Account
+        // 1. Super Admin Account (Official Production Admin)
         $admin = User::updateOrCreate(
-            ['email' => 'superadmin@test.com'],
+            ['email' => 'admin@yousee.com'],
             [
-                'name' => 'Super Administrator',
-                'password' => Hash::make('password'),
+                'name' => 'Administrator YOUSEE',
+                'password' => Hash::make('YouseeLED123!'),
                 'role' => 'admin',
                 'expires_at' => null,
                 'is_active' => true,
             ]
         );
 
-        // 2. Client User Test Account
+        // 2. Client User Account (Official Client Portal)
         $client = User::updateOrCreate(
-            ['email' => 'client@test.com'],
+            ['email' => 'client@yousee.com'],
             [
-                'name' => 'Client Demo User',
-                'password' => Hash::make('password'),
+                'name' => 'Client YOUSEE Mobile LED',
+                'password' => Hash::make('YouseeLED123!'),
                 'role' => 'user',
-                'expires_at' => now()->addDays(30),
+                'expires_at' => now()->addYears(1),
                 'is_active' => true,
             ]
         );

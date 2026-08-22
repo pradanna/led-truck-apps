@@ -69,7 +69,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Poll traffic data every 10 seconds
+  // Poll traffic & NVR telemetry data every 30 seconds (optimal for multi-user load)
   useEffect(() => {
     const pollInterval = setInterval(() => {
       fetch('/api/cctv/stream-data')
@@ -80,7 +80,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           }
         })
         .catch(err => console.error("Poll CCTV error:", err));
-    }, 10000);
+    }, 30000);
 
     return () => clearInterval(pollInterval);
   }, []);

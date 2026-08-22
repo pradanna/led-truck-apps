@@ -33,8 +33,8 @@ class HolowitsService
                 'id' => 'truck_2',
                 'name' => 'Truk LED 02 (B 9142 SXZ)',
                 'nvr_ip' => '151.242.116.16',
-                'http_port' => 1945,
-                'rtsp_port' => 1945,
+                'http_port' => 70,
+                'rtsp_port' => 70,
                 'username' => 'admin',
                 'password' => 'Mobilled9731',
                 'channels' => [

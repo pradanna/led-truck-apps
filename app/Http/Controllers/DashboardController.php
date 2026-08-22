@@ -31,16 +31,16 @@ class DashboardController extends Controller
      */
     public function index(Request $request): Response
     {
-        // 1. Foxlogger GPS data (positions & devices)
+        // 1. Fast Foxlogger GPS data from Cache / DB (0 blocking)
         $devices = $this->foxlogger->getDeviceList();
         $positions = $this->foxlogger->getReportPosition();
 
-        // 2. Novastar / VNNOX Videotron data (playlist, active material, logs, controller status)
+        // 2. Fast Novastar / VNNOX Videotron data (Instant Cache)
         $playlistResult = $this->vnnox->getPlaylistData();
         $controllerStatus = $this->vnnox->getNovastarControllerStatus();
         $playlogResult = $this->vnnox->getPlaylogRecordsData();
 
-        // 3. Holowits CCTV & Traffic Analytics data
+        // 3. Fast CCTV & Traffic data (Instant Cache)
         $cctvData = $this->holowits->getLiveMonitoringData();
 
         return Inertia::render('Dashboard', [

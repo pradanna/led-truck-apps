@@ -15,24 +15,30 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Super Admin Account (Official Production Admin)
+        // 1. Super Admin Account
+        $adminEmail = env('ADMIN_DEFAULT_EMAIL', 'admin@example.com');
+        $adminPassword = env('ADMIN_DEFAULT_PASSWORD', 'password');
+        
         $admin = User::updateOrCreate(
-            ['email' => 'admin@yousee.com'],
+            ['email' => $adminEmail],
             [
-                'name' => 'Administrator YOUSEE',
-                'password' => Hash::make(env('ADMIN_DEFAULT_PASSWORD', 'YouseeLED123!')),
+                'name' => env('ADMIN_DEFAULT_NAME', 'System Administrator'),
+                'password' => Hash::make($adminPassword),
                 'role' => 'admin',
                 'expires_at' => null,
                 'is_active' => true,
             ]
         );
 
-        // 2. Client User Account (Official Client Portal)
+        // 2. Client User Account
+        $clientEmail = env('CLIENT_DEFAULT_EMAIL', 'client@example.com');
+        $clientPassword = env('CLIENT_DEFAULT_PASSWORD', 'password');
+
         $client = User::updateOrCreate(
-            ['email' => 'client@yousee.com'],
+            ['email' => $clientEmail],
             [
-                'name' => 'Client YOUSEE Mobile LED',
-                'password' => Hash::make(env('CLIENT_DEFAULT_PASSWORD', 'YouseeLED123!')),
+                'name' => env('CLIENT_DEFAULT_NAME', 'Client User'),
+                'password' => Hash::make($clientPassword),
                 'role' => 'user',
                 'expires_at' => now()->addYears(1),
                 'is_active' => true,

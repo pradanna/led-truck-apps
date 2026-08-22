@@ -15,15 +15,18 @@ class HolowitsService
      */
     public function getTruckConfigs(): array
     {
+        $cfgT1 = config('services.holowits.truck_1', []);
+        $cfgT2 = config('services.holowits.truck_2', []);
+
         $defaultConfigs = [
             'truck_1' => [
                 'id' => 'truck_1',
                 'name' => 'Truk LED 01 (B 9731 JXS)',
-                'nvr_ip' => '31.58.158.133',
-                'http_port' => 70,
-                'rtsp_port' => 70,
-                'username' => 'admin',
-                'password' => 'Mobilled9731',
+                'nvr_ip' => $cfgT1['nvr_ip'] ?? env('HOLOWITS_T1_IP', ''),
+                'http_port' => (int) ($cfgT1['http_port'] ?? env('HOLOWITS_T1_HTTP_PORT', 70)),
+                'rtsp_port' => (int) ($cfgT1['rtsp_port'] ?? env('HOLOWITS_T1_RTSP_PORT', 70)),
+                'username' => $cfgT1['username'] ?? env('HOLOWITS_T1_USER', 'admin'),
+                'password' => $cfgT1['password'] ?? env('HOLOWITS_T1_PASS', ''),
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
                     'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
@@ -32,11 +35,11 @@ class HolowitsService
             'truck_2' => [
                 'id' => 'truck_2',
                 'name' => 'Truk LED 02 (B 9142 SXZ)',
-                'nvr_ip' => '151.242.116.16',
-                'http_port' => 70,
-                'rtsp_port' => 70,
-                'username' => 'admin',
-                'password' => 'Mobilled9729',
+                'nvr_ip' => $cfgT2['nvr_ip'] ?? env('HOLOWITS_T2_IP', ''),
+                'http_port' => (int) ($cfgT2['http_port'] ?? env('HOLOWITS_T2_HTTP_PORT', 70)),
+                'rtsp_port' => (int) ($cfgT2['rtsp_port'] ?? env('HOLOWITS_T2_RTSP_PORT', 70)),
+                'username' => $cfgT2['username'] ?? env('HOLOWITS_T2_USER', 'admin'),
+                'password' => $cfgT2['password'] ?? env('HOLOWITS_T2_PASS', ''),
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
                     'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
@@ -83,14 +86,14 @@ class HolowitsService
         $t2 = $configs['truck_2'] ?? [];
 
         $t1User = $t1['username'] ?? 'admin';
-        $t1Pass = $t1['password'] ?? 'Admin12345!';
-        $t1Ip = $t1['nvr_ip'] ?? '103.144.175.22';
-        $t1Rtsp = $t1['rtsp_port'] ?? 554;
+        $t1Pass = $t1['password'] ?? '';
+        $t1Ip = $t1['nvr_ip'] ?? '0.0.0.0';
+        $t1Rtsp = (int)($t1['rtsp_port'] ?? 70);
 
         $t2User = $t2['username'] ?? 'admin';
-        $t2Pass = $t2['password'] ?? 'Admin12345!';
-        $t2Ip = $t2['nvr_ip'] ?? '103.144.175.28';
-        $t2Rtsp = $t2['rtsp_port'] ?? 554;
+        $t2Pass = $t2['password'] ?? '';
+        $t2Ip = $t2['nvr_ip'] ?? '0.0.0.0';
+        $t2Rtsp = (int)($t2['rtsp_port'] ?? 70);
 
         $yamlContent = <<<YAML
 # go2rtc WebRTC & RTSP Gateway Configuration for LED Truck Apps

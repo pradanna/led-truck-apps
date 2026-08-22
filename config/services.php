@@ -41,4 +41,26 @@ return [
         'app_secret' => env('VNNOX_APP_SECRET'),
     ],
 
+    'foxlogger' => [
+        'email' => env('FOXLOGGER_EMAIL', env('EMAIL_LOGFLOGGER', '')),
+        'password' => env('FOXLOGGER_PASSWORD', env('PASSWORD_LOGFLOGGER', '')),
+    ],
+
+    'holowits' => [
+        'truck_1' => [
+            'nvr_ip' => env('HOLOWITS_T1_IP', '31.58.158.133'),
+            'http_port' => (int) env('HOLOWITS_T1_HTTP_PORT', 70),
+            'rtsp_port' => (int) env('HOLOWITS_T1_RTSP_PORT', 70),
+            'username' => env('HOLOWITS_T1_USER', 'admin'),
+            'password' => env('HOLOWITS_T1_PASS', ''),
+        ],
+        'truck_2' => [
+            'nvr_ip' => env('HOLOWITS_T2_IP', '151.242.116.16'),
+            'http_port' => (int) env('HOLOWITS_T2_HTTP_PORT', 70),
+            'rtsp_port' => (int) env('HOLOWITS_T2_RTSP_PORT', 70),
+            'username' => env('HOLOWITS_T2_USER', 'admin'),
+            'password' => env('HOLOWITS_T2_PASS', ''),
+        ],
+    ],
+
 ];

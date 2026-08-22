@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'admin@yousee.com'],
             [
                 'name' => 'Administrator YOUSEE',
-                'password' => Hash::make('YouseeLED123!'),
+                'password' => Hash::make(env('ADMIN_DEFAULT_PASSWORD', 'YouseeLED123!')),
                 'role' => 'admin',
                 'expires_at' => null,
                 'is_active' => true,
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
             ['email' => 'client@yousee.com'],
             [
                 'name' => 'Client YOUSEE Mobile LED',
-                'password' => Hash::make('YouseeLED123!'),
+                'password' => Hash::make(env('CLIENT_DEFAULT_PASSWORD', 'YouseeLED123!')),
                 'role' => 'user',
                 'expires_at' => now()->addYears(1),
                 'is_active' => true,

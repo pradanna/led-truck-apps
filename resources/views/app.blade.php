@@ -28,7 +28,7 @@
       }
     </style>
     @viteReactRefresh
-    @vite(['resources/js/app.jsx', 'resources/css/app.css'])
+    @vite(['resources/js/app.jsx'])
     @inertiaHead
   </head>
   <body class="bg-slate-100 text-slate-900 font-sans antialiased min-h-screen">

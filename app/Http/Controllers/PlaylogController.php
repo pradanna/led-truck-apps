@@ -21,18 +21,34 @@ class PlaylogController extends Controller
      */
     public function index(Request $request): Response
     {
-        $playlistResult = $this->playlogService->getPlaylistData();
-        $controllerStatus = $this->playlogService->getNovastarControllerStatus();
-        $playlogResult = $this->playlogService->getPlaylogRecordsData();
+        $selectedTruck = $request->query('truck_id', 'truck_1');
+        if (!in_array($selectedTruck, ['truck_1', 'truck_2'])) {
+            $selectedTruck = 'truck_1';
+        }
+
+        $playlistResult = $this->playlogService->getPlaylistData(false, $selectedTruck);
+        $controllerStatus = $this->playlogService->getNovastarControllerStatus(false, $selectedTruck);
+        $playlogResult = $this->playlogService->getPlaylogRecordsData(false, $selectedTruck);
+
+        $truckInfo = $selectedTruck === 'truck_2' ? [
+            'id' => 'truck_2',
+            'name' => 'Truk LED 02',
+            'plateNumber' => 'B 9729 JXS',
+            'location' => 'Gading Serpong / Tangerang',
+            'isLive' => $controllerStatus['onlineStatus'] ?? false,
+            'operationalDateTime' => now()->translatedFormat('d M Y, H.i.s'),
+        ] : [
+            'id' => 'truck_1',
+            'name' => 'Truk LED 01',
+            'plateNumber' => 'B 9731 JXS',
+            'location' => 'BSD City / Tangerang',
+            'isLive' => $controllerStatus['onlineStatus'] ?? false,
+            'operationalDateTime' => now()->translatedFormat('d M Y, H.i.s'),
+        ];
 
         return Inertia::render('PlaylogPlaylist', [
-            'truckInfo' => [
-                'name' => 'LED Truck Giga 01',
-                'plateNumber' => 'B 9482 LED',
-                'location' => 'Bundaran HI',
-                'isLive' => $controllerStatus['onlineStatus'] ?? false,
-                'operationalDateTime' => now()->translatedFormat('d M Y, H.i.s'),
-            ],
+            'selectedTruck' => $selectedTruck,
+            'truckInfo' => $truckInfo,
             'playlistData' => $playlistResult,
             'controllerStatus' => $controllerStatus,
             'playlogData' => $playlogResult,

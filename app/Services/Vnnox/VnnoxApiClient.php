@@ -22,30 +22,32 @@ class VnnoxApiClient
     /**
      * Send GET request to VNNOX API
      */
-    public function get(string $path, array $queryParams = []): array
-    {
-        return $this->request('GET', $path, $queryParams);
-    }
+     public function get(string $path, array $queryParams = [], string $truckId = 'truck_1'): array
+     {
+         return $this->request('GET', $path, $queryParams, $truckId);
+     }
 
-    /**
-     * Send POST request to VNNOX API
-     */
-    public function post(string $path, array $body = []): array
-    {
-        return $this->request('POST', $path, $body);
-    }
+     /**
+      * Send POST request to VNNOX API
+      */
+     public function post(string $path, array $body = [], string $truckId = 'truck_1'): array
+     {
+         return $this->request('POST', $path, $body, $truckId);
+     }
 
-    /**
-     * Internal request handler with auth headers & error handling
-     */
-    protected function request(string $method, string $path, array $data = []): array
-    {
-        $url = $this->baseUrl . '/' . ltrim($path, '/');
-        $headers = $this->authService->getAuthHeaders();
+     /**
+      * Internal request handler with auth headers & error handling
+      */
+     protected function request(string $method, string $path, array $data = [], string $truckId = 'truck_1'): array
+     {
+         $creds = $this->authService->getCredentialsForAccount($truckId);
+         $baseUrl = $creds['base_url'];
+         $url = $baseUrl . '/' . ltrim($path, '/');
+         $headers = $this->authService->getAuthHeaders($truckId);
 
-        try {
-            $client = Http::withHeaders($headers)
-                ->timeout(10);
+         try {
+             $client = Http::withHeaders($headers)
+                 ->timeout(10);
 
             if (strtoupper($method) === 'POST') {
                 $response = $client->asJson()->post($url, $data);

@@ -34,7 +34,7 @@ class HolowitsService
             ],
             'truck_2' => [
                 'id' => 'truck_2',
-                'name' => 'Truk LED 02 (B 9142 SXZ)',
+                'name' => 'Truk LED 02 (B 9729 JXS)',
                 'nvr_ip' => $cfgT2['nvr_ip'] ?? env('HOLOWITS_T2_IP', ''),
                 'http_port' => (int) ($cfgT2['http_port'] ?? env('HOLOWITS_T2_HTTP_PORT', 70)),
                 'rtsp_port' => (int) ($cfgT2['rtsp_port'] ?? env('HOLOWITS_T2_RTSP_PORT', 70)),

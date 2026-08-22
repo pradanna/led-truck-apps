@@ -14,20 +14,37 @@ class FoxloggerService
     protected string $baseUrl = 'https://api-v2.foxlogger.app';
     protected string $cacheKey = 'foxlogger_token_session';
 
+    /**
+     * Get list of all configured Foxlogger accounts (Truck 1 & Truck 2)
+     */
+    public function getAllAccountCredentials(): array
+    {
+        $accounts = [
+            'truck_1' => [
+                'email' => SystemSetting::get('foxlogger_username', env('EMAIL_LOGFLOGGER', 'centralledid168@gmail.com')),
+                'password' => SystemSetting::get('foxlogger_password', env('PASSWORD_LOGFLOGGER', '575859')),
+            ],
+            'truck_2' => [
+                'email' => SystemSetting::get('foxlogger_username_truck_2', env('EMAIL_LOGFLOGGER_TRUCK2', 'Crs.advertising@gmail.com')),
+                'password' => SystemSetting::get('foxlogger_password_truck_2', env('PASSWORD_LOGFLOGGER_TRUCK2', '575859')),
+            ],
+        ];
+
+        return $accounts;
+    }
+
     public function getAuthCredentials(): array
     {
-        $email = SystemSetting::get('foxlogger_username', env('EMAIL_LOGFLOGGER', 'centralledid168@gmail.com'));
-        $password = SystemSetting::get('foxlogger_password', env('PASSWORD_LOGFLOGGER', '575859'));
-
-        return [$email, $password];
+        $accounts = $this->getAllAccountCredentials();
+        return [$accounts['truck_1']['email'], $accounts['truck_1']['password']];
     }
 
     /**
-     * Authenticate via Basic Auth to fetch initial access & refresh token.
+     * Authenticate a specific account via Basic Auth to fetch its session.
      */
-    public function login(): ?array
+    public function loginAccount(string $accountKey, string $email, string $password): ?array
     {
-        [$email, $password] = $this->getAuthCredentials();
+        $cacheKey = "{$this->cacheKey}_{$accountKey}";
 
         try {
             $response = Http::timeout(4)
@@ -39,36 +56,49 @@ class FoxloggerService
                 $tokenData = $response->json()['data'];
                 $accessToken = $tokenData['access_token'];
                 $refreshToken = $tokenData['refresh_token'] ?? null;
-
                 $userId = $this->extractUserIdFromJwt($accessToken);
 
                 $session = [
+                    'account_key' => $accountKey,
+                    'email' => $email,
                     'access_token' => $accessToken,
                     'refresh_token' => $refreshToken,
                     'user_id' => $userId,
                     'updated_at' => now()->toDateTimeString(),
                 ];
 
-                Cache::put($this->cacheKey, $session, now()->addHours(23));
+                Cache::put($cacheKey, $session, now()->addHours(23));
                 return $session;
             }
         } catch (\Throwable $e) {
-            Log::error('Foxlogger Auth Exception', ['error' => $e->getMessage()]);
+            Log::error("Foxlogger Auth Exception for {$accountKey}", ['error' => $e->getMessage()]);
         }
 
         return null;
     }
 
-    /**
-     * Refresh access_token using refresh_token endpoint.
-     */
-    public function refreshToken(?string $providedRefreshToken = null): ?array
+    public function login(): ?array
     {
-        $session = Cache::get($this->cacheKey);
+        $accounts = $this->getAllAccountCredentials();
+        $primary = $this->loginAccount('truck_1', $accounts['truck_1']['email'], $accounts['truck_1']['password']);
+        $this->loginAccount('truck_2', $accounts['truck_2']['email'], $accounts['truck_2']['password']);
+        return $primary;
+    }
+
+    /**
+     * Refresh access_token using refresh_token endpoint for a specific account.
+     */
+    public function refreshTokenForAccount(string $accountKey, ?string $providedRefreshToken = null): ?array
+    {
+        $cacheKey = "{$this->cacheKey}_{$accountKey}";
+        $session = Cache::get($cacheKey);
         $refreshToken = $providedRefreshToken ?? ($session['refresh_token'] ?? null);
 
+        $accounts = $this->getAllAccountCredentials();
+        $creds = $accounts[$accountKey] ?? $accounts['truck_1'];
+
         if (!$refreshToken) {
-            return $this->login();
+            return $this->loginAccount($accountKey, $creds['email'], $creds['password']);
         }
 
         try {
@@ -82,38 +112,54 @@ class FoxloggerService
                 $tokenData = $response->json()['data'];
                 $newAccessToken = $tokenData['access_token'];
                 $newRefreshToken = $tokenData['refresh_token'] ?? $refreshToken;
-
                 $userId = $this->extractUserIdFromJwt($newAccessToken) ?? ($session['user_id'] ?? null);
 
                 $newSession = [
+                    'account_key' => $accountKey,
+                    'email' => $creds['email'],
                     'access_token' => $newAccessToken,
                     'refresh_token' => $newRefreshToken,
                     'user_id' => $userId,
                     'updated_at' => now()->toDateTimeString(),
                 ];
 
-                Cache::put($this->cacheKey, $newSession, now()->addHours(23));
+                Cache::put($cacheKey, $newSession, now()->addHours(23));
                 return $newSession;
             }
         } catch (\Throwable $e) {
-            Log::warning('Foxlogger Refresh Token Exception', ['error' => $e->getMessage()]);
+            Log::warning("Foxlogger Refresh Token Exception for {$accountKey}", ['error' => $e->getMessage()]);
         }
 
-        return $this->login();
+        return $this->loginAccount($accountKey, $creds['email'], $creds['password']);
+    }
+
+    public function refreshToken(?string $providedRefreshToken = null): ?array
+    {
+        return $this->refreshTokenForAccount('truck_1', $providedRefreshToken);
     }
 
     /**
-     * Get valid access token session from Cache, auto-authenticating/refreshing if needed.
+     * Get valid access token session for a specific account.
      */
-    public function getValidSession(): ?array
+    public function getValidSessionForAccount(string $accountKey): ?array
     {
-        $session = Cache::get($this->cacheKey);
+        $cacheKey = "{$this->cacheKey}_{$accountKey}";
+        $session = Cache::get($cacheKey);
 
         if (!$session || empty($session['access_token'])) {
-            return $this->login();
+            $accounts = $this->getAllAccountCredentials();
+            $creds = $accounts[$accountKey] ?? null;
+            if ($creds) {
+                return $this->loginAccount($accountKey, $creds['email'], $creds['password']);
+            }
         }
 
         return $session;
+    }
+
+    public function getValidSession(): ?array
+    {
+        return $this->getValidSessionForAccount('truck_1');
     }
 
     protected function extractUserIdFromJwt(string $token): ?string
@@ -127,100 +173,124 @@ class FoxloggerService
     }
 
     /**
-     * Fetch device list with 2-minute Cache to make initial page load instant.
+     * Fetch device list across all accounts with 2-minute Cache.
      */
     public function getDeviceList(bool $forceRefresh = false): array
     {
-        if (!$forceRefresh && Cache::has('foxlogger_devices_list')) {
-            return Cache::get('foxlogger_devices_list');
+        if (!$forceRefresh && Cache::has('foxlogger_devices_list_combined')) {
+            return Cache::get('foxlogger_devices_list_combined');
         }
 
-        $session = $this->getValidSession();
-        if (!$session || !$session['user_id']) {
-            return [];
-        }
+        $accounts = $this->getAllAccountCredentials();
+        $combinedDevices = [];
 
-        try {
-            $response = Http::timeout(3)
-                ->withToken($session['access_token'])
-                ->withoutVerifying()
-                ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
-
-            if ($response->status() === 401) {
-                $session = $this->refreshToken();
-                if ($session) {
-                    $response = Http::timeout(3)
-                        ->withToken($session['access_token'])
-                        ->withoutVerifying()
-                        ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
-                }
+        foreach ($accounts as $key => $cred) {
+            $session = $this->getValidSessionForAccount($key);
+            if (!$session || empty($session['user_id'])) {
+                continue;
             }
 
-            if ($response->successful()) {
-                $devices = $response->json()['data'] ?? [];
-                if (!empty($devices)) {
-                    Cache::put('foxlogger_devices_list', $devices, now()->addMinutes(2));
+            try {
+                $response = Http::timeout(3)
+                    ->withToken($session['access_token'])
+                    ->withoutVerifying()
+                    ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
+
+                if ($response->status() === 401) {
+                    $session = $this->refreshTokenForAccount($key);
+                    if ($session) {
+                        $response = Http::timeout(3)
+                            ->withToken($session['access_token'])
+                            ->withoutVerifying()
+                            ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
+                    }
                 }
-                return $devices;
+
+                if ($response->successful()) {
+                    $devices = $response->json()['data'] ?? [];
+                    foreach ($devices as $dev) {
+                        $dev['account_key'] = $key;
+                        $combinedDevices[] = $dev;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::error("Foxlogger getDeviceList Exception for {$key}", ['error' => $e->getMessage()]);
             }
-        } catch (\Throwable $e) {
-            Log::error('Foxlogger getDeviceList Exception', ['error' => $e->getMessage()]);
         }
 
-        return Cache::get('foxlogger_devices_list', []);
+        if (!empty($combinedDevices)) {
+            Cache::put('foxlogger_devices_list_combined', $combinedDevices, now()->addMinutes(2));
+            return $combinedDevices;
+        }
+
+        return Cache::get('foxlogger_devices_list_combined', []);
     }
 
     /**
-     * Fetch report position with 1-minute Cache to optimize speed.
+     * Fetch report position across all accounts with 1-minute Cache.
      */
     public function getReportPosition(bool $forceRefresh = false): array
     {
-        if (!$forceRefresh && Cache::has('foxlogger_positions_report')) {
-            return Cache::get('foxlogger_positions_report');
+        if (!$forceRefresh && Cache::has('foxlogger_positions_report_combined')) {
+            return Cache::get('foxlogger_positions_report_combined');
         }
 
-        $session = $this->getValidSession();
-        if (!$session || !$session['user_id']) {
-            return [];
-        }
+        $accounts = $this->getAllAccountCredentials();
+        $combinedPositions = [];
 
-        try {
-            $response = Http::timeout(3)
-                ->withToken($session['access_token'])
-                ->withoutVerifying()
-                ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
-
-            if ($response->status() === 401) {
-                $session = $this->refreshToken();
-                if ($session) {
-                    $response = Http::timeout(3)
-                        ->withToken($session['access_token'])
-                        ->withoutVerifying()
-                        ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
-                }
+        foreach ($accounts as $key => $cred) {
+            $session = $this->getValidSessionForAccount($key);
+            if (!$session || empty($session['user_id'])) {
+                continue;
             }
 
-            if ($response->successful()) {
-                $positions = $response->json()['data'] ?? [];
-                if (!empty($positions)) {
-                    Cache::put('foxlogger_positions_report', $positions, now()->addMinute());
+            try {
+                $response = Http::timeout(3)
+                    ->withToken($session['access_token'])
+                    ->withoutVerifying()
+                    ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
+
+                if ($response->status() === 401) {
+                    $session = $this->refreshTokenForAccount($key);
+                    if ($session) {
+                        $response = Http::timeout(3)
+                            ->withToken($session['access_token'])
+                            ->withoutVerifying()
+                            ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
+                    }
                 }
-                return $positions;
+
+                if ($response->successful()) {
+                    $positions = $response->json()['data'] ?? [];
+                    foreach ($positions as $pos) {
+                        $pos['account_key'] = $key;
+                        $combinedPositions[] = $pos;
+
+                        // Background auto-archive current live position to local DB
+                        if (!empty($pos['imei']) && !empty($pos['last_upd'])) {
+                            try {
+                                \App\Models\GpsTelemetryLog::bulkSyncFromFoxlogger($pos['imei'], [$pos], $pos['unit'] ?? null);
+                            } catch (\Throwable $e) {
+                                // Silent fail to never block live UI
+                            }
+                        }
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::error("Foxlogger getReportPosition Exception for {$key}", ['error' => $e->getMessage()]);
             }
-        } catch (\Throwable $e) {
-            Log::error('Foxlogger getReportPosition Exception', ['error' => $e->getMessage()]);
         }
 
-        return Cache::get('foxlogger_positions_report', []);
+        if (!empty($combinedPositions)) {
+            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinute());
+            return $combinedPositions;
+        }
+
+        return Cache::get('foxlogger_positions_report_combined', []);
     }
 
     public function getReportHistory(string $imei, ?string $time1 = null, ?string $time2 = null): array
     {
-        $session = $this->getValidSession();
-        if (!$session || !$session['user_id']) {
-            return [];
-        }
-
         date_default_timezone_set('Asia/Jakarta');
         $time1 = $time1 ?? date('Y-m-d 00:00:00');
         $time2 = $time2 ?? date('Y-m-d H:i:s');
@@ -230,39 +300,88 @@ class FoxloggerService
             return Cache::get($cacheKey);
         }
 
-        try {
-            $response = Http::timeout(4)
-                ->withToken($session['access_token'])
-                ->withoutVerifying()
-                ->get("{$this->baseUrl}/web-tracker-staging/report-history", [
-                    'imei' => $imei,
-                    'user_id' => $session['user_id'],
-                    'time1' => $time1,
-                    'time2' => $time2,
-                ]);
+        $dateKey = date('Y-m-d', strtotime($time1));
+        $isToday = ($dateKey === date('Y-m-d'));
 
-            if ($response->status() === 401) {
-                $session = $this->refreshToken();
-                if ($session) {
-                    $response = Http::timeout(4)
-                        ->withToken($session['access_token'])
-                        ->withoutVerifying()
-                        ->get("{$this->baseUrl}/web-tracker-staging/report-history", [
-                            'imei' => $imei,
-                            'user_id' => $session['user_id'],
-                            'time1' => $time1,
-                            'time2' => $time2,
-                        ]);
+        // If querying a past date, check local DB first (Instant & permanent archive)
+        if (!$isToday) {
+            $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
+                ->whereBetween('logged_at', [$time1, $time2])
+                ->orderBy('logged_at', 'asc')
+                ->get();
+
+            if ($dbLogs->count() > 0) {
+                $formattedFromDb = $dbLogs->map(function ($log) {
+                    return [
+                        'time' => $log->logged_at->format('Y-m-d H:i:s'),
+                        'lat' => (string)$log->latitude,
+                        'long' => (string)$log->longitude,
+                        'Speed' => (int)$log->speed,
+                        'addr' => $log->address,
+                        'status' => $log->status,
+                        'engi' => $log->engine_status,
+                        'Mill' => $log->mileage_km,
+                        'unit' => $log->truck_plate,
+                        'imei' => $log->imei,
+                    ];
+                })->toArray();
+
+                Cache::put($cacheKey, $formattedFromDb, now()->addHours(6));
+                return $formattedFromDb;
+            }
+        }
+
+        $accounts = $this->getAllAccountCredentials();
+
+        foreach ($accounts as $key => $cred) {
+            $session = $this->getValidSessionForAccount($key);
+            if (!$session || empty($session['user_id'])) {
+                continue;
+            }
+
+            try {
+                $response = Http::timeout(4)
+                    ->withToken($session['access_token'])
+                    ->withoutVerifying()
+                    ->get("{$this->baseUrl}/web-tracker-staging/report-history", [
+                        'imei' => $imei,
+                        'user_id' => $session['user_id'],
+                        'time1' => $time1,
+                        'time2' => $time2,
+                    ]);
+
+                if ($response->status() === 401) {
+                    $session = $this->refreshTokenForAccount($key);
+                    if ($session) {
+                        $response = Http::timeout(4)
+                            ->withToken($session['access_token'])
+                            ->withoutVerifying()
+                            ->get("{$this->baseUrl}/web-tracker-staging/report-history", [
+                                'imei' => $imei,
+                                'user_id' => $session['user_id'],
+                                'time1' => $time1,
+                                'time2' => $time2,
+                            ]);
+                    }
                 }
-            }
 
-            if ($response->successful()) {
-                $history = $response->json()['data'] ?? [];
-                Cache::put($cacheKey, $history, now()->addMinutes(5));
-                return $history;
+                if ($response->successful()) {
+                    $history = $response->json()['data'] ?? [];
+                    if (!empty($history)) {
+                        // Automatically archive to database so it never expires
+                        try {
+                            \App\Models\GpsTelemetryLog::bulkSyncFromFoxlogger($imei, $history);
+                        } catch (\Throwable $e) {
+                            Log::warning("GpsTelemetryLog bulkSync Exception: " . $e->getMessage());
+                        }
+
+                        Cache::put($cacheKey, $history, now()->addMinutes(5));
+                        return $history;
+                    }
+                }
+            } catch (\Throwable $e) {
+                Log::error("Foxlogger getReportHistory Exception for {$key}", ['error' => $e->getMessage()]);
             }
-        } catch (\Throwable $e) {
-            Log::error('Foxlogger getReportHistory Exception', ['error' => $e->getMessage()]);
         }
 
         return [];

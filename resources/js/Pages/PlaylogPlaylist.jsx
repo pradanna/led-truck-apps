@@ -185,7 +185,7 @@ export default function PlaylogPlaylist({ truckInfo, playlistData, controllerSta
             )}
 
             {/* Banner Section with Add Material Button */}
-            <PlaylogBannerHeader onAddMaterial={handleOpenAddModal} />
+            <PlaylogBannerHeader onAddMaterial={handleOpenAddModal} selectedTruck={truckInfo?.id || 'truck_1'} />
 
             {/* Grid Row: Playlist (Left 2 cols) & Controller Specs (Right 1 col) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

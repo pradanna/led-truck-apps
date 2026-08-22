@@ -462,7 +462,7 @@ export default function ReportDetail({
                                                         <CheckCircle2 className="w-3.5 h-3.5" /> 98.1%
                                                     </span>
                                                 </div>
-                                                <div className="text-[11px] text-slate-500">Plat: B 9142 SXZ | Rute: Gatot Subroto - Kuningan</div>
+                                                <div className="text-[11px] text-slate-500">Plat: B 9729 JXS | Rute: Gatot Subroto - Kuningan</div>
                                             </div>
                                         </div>
                                     </div>

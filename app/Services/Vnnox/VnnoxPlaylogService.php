@@ -29,7 +29,7 @@ class VnnoxPlaylogService
     /**
      * Get active player / material list from VNNOX API and Local Cache Store
      */
-    public function getPlaylistData(bool $forceRefresh = false): array
+    public function getPlaylistData(bool $forceRefresh = false, string $truckId = 'truck_1'): array
     {
         if (!$this->hasConfiguredCredentials()) {
             return [
@@ -39,11 +39,13 @@ class VnnoxPlaylogService
             ];
         }
 
-        if (!$forceRefresh && Cache::has('vnnox_playlist_data')) {
-            return Cache::get('vnnox_playlist_data');
+        $cacheKey = "vnnox_playlist_data_{$truckId}";
+
+        if (!$forceRefresh && Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
         }
 
-        $vnnoxResponse = $this->apiClient->get('/v2/player/list', ['count' => 20]);
+        $vnnoxResponse = $this->apiClient->get('/v2/player/list', ['count' => 20], $truckId);
 
         $items = [];
         if ($vnnoxResponse['success']) {
@@ -71,7 +73,7 @@ class VnnoxPlaylogService
         }
 
         // Merge with any newly added custom materials created by Admin
-        $customMaterials = Cache::get('vnnox_custom_materials', []);
+        $customMaterials = Cache::get("vnnox_custom_materials_{$truckId}", []);
         if (!empty($customMaterials)) {
             $items = array_merge($customMaterials, $items);
         }
@@ -82,14 +84,14 @@ class VnnoxPlaylogService
             'items' => $items,
         ];
 
-        Cache::put('vnnox_playlist_data', $result, now()->addSeconds(45));
+        Cache::put($cacheKey, $result, now()->addSeconds(45));
         return $result;
     }
 
     /**
      * Add / Upload New Material to VNNOX NovaStar Media Library & Playlist
      */
-    public function addMaterial(array $materialData, ?UploadedFile $file = null): array
+    public function addMaterial(array $materialData, ?UploadedFile $file = null, string $truckId = 'truck_1'): array
     {
         $materialId = 'MAT-' . strtoupper(uniqid());
         $title = $materialData['title'] ?? 'Materi Iklan Baru';
@@ -97,7 +99,6 @@ class VnnoxPlaylogService
         $duration = (int)($materialData['duration'] ?? 15);
         $frequency = $materialData['frequency'] ?? '120x / Hari';
         $mediaType = $materialData['media_type'] ?? 'video'; // video or image
-        $targetPlayerId = $materialData['player_id'] ?? null;
 
         $thumbnailPath = null;
         $mediaUrl = null;
@@ -109,7 +110,6 @@ class VnnoxPlaylogService
             $isImage = in_array($extension, ['jpg', 'jpeg', 'png', 'webp']) || str_starts_with($file->getMimeType() ?? '', 'image/');
 
             if ($isImage) {
-                // Compress & resize image automatically
                 $fileName = \App\Services\ImageOptimizerService::compressAndSave(
                     $file,
                     $destDir,
@@ -138,13 +138,17 @@ class VnnoxPlaylogService
                 'name' => $title,
                 'clientName' => $clientName,
                 'duration' => $duration,
-                'type' => $mediaType,
-                'url' => $mediaUrl ? url($mediaUrl) : null,
-                'playerId' => $targetPlayerId,
+                'mediaType' => $mediaType,
             ];
 
-            // Send async register command to NovaStar VNNOX
-            $vnnoxApiResult = $this->apiClient->post('/v2/media/publish', $payload);
+            try {
+                $apiRes = $this->apiClient->post('/v2/media/create', $payload, $truckId);
+                if ($apiRes['success']) {
+                    $vnnoxApiResult = $apiRes['data'];
+                }
+            } catch (\Throwable $e) {
+                Log::warning('VNNOX Media Publish API Notice', ['error' => $e->getMessage()]);
+            }
         }
 
         // 3. Register Material into System Cache Store
@@ -157,32 +161,33 @@ class VnnoxPlaylogService
             'impressions' => 0,
             'status' => 'ACTIVE',
             'onlineStatus' => true,
-            'type' => $mediaType,
-            'media_url' => $mediaUrl,
             'thumbnail' => $thumbnailPath,
-            'created_at' => now()->translatedFormat('d M Y H:i'),
-            'vnnox_synced' => $vnnoxApiResult['success'] ?? false,
+            'type' => $mediaType,
+            'file_url' => $mediaUrl,
+            'vnnox_synced' => !empty($vnnoxApiResult),
+            'vnnox_media_id' => $vnnoxApiResult['id'] ?? null,
+            'created_at' => now()->toDateTimeString(),
         ];
 
-        $customMaterials = Cache::get('vnnox_custom_materials', []);
+        // Store into persistent custom materials cache
+        $customMaterials = Cache::get("vnnox_custom_materials_{$truckId}", []);
         array_unshift($customMaterials, $newMaterial);
-        Cache::put('vnnox_custom_materials', $customMaterials, now()->addDays(30));
+        Cache::put("vnnox_custom_materials_{$truckId}", $customMaterials, now()->addDays(30));
 
-        // Clear playlist cache so changes appear instantly
-        Cache::forget('vnnox_playlist_data');
+        // Flush playlist cache to immediately reflect in UI
+        Cache::forget("vnnox_playlist_data_{$truckId}");
 
         return [
             'success' => true,
-            'message' => "Materi iklan '{$title}' berhasil ditambahkan ke Playlist & disinkronkan ke Controller!",
+            'message' => 'Materi baru berhasil diunggah dan ditambahkan ke daftar putar NovaStar VNNOX!',
             'material' => $newMaterial,
-            'vnnox_response' => $vnnoxApiResult,
         ];
     }
 
     /**
      * Get Novastar Videotron Controller Hardware Specs & Status from VNNOX API with 60s cache
      */
-    public function getNovastarControllerStatus(bool $forceRefresh = false): array
+    public function getNovastarControllerStatus(bool $forceRefresh = false, string $truckId = 'truck_1'): array
     {
         if (!$this->hasConfiguredCredentials()) {
             return [
@@ -197,11 +202,13 @@ class VnnoxPlaylogService
             ];
         }
 
-        if (!$forceRefresh && Cache::has('vnnox_controller_status')) {
-            return Cache::get('vnnox_controller_status');
+        $cacheKey = "vnnox_controller_status_{$truckId}";
+
+        if (!$forceRefresh && Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
         }
 
-        $vnnoxResponse = $this->apiClient->get('/v2/player/list', ['count' => 5]);
+        $vnnoxResponse = $this->apiClient->get('/v2/player/list', ['count' => 5], $truckId);
 
         if (!$vnnoxResponse['success']) {
             return [
@@ -231,19 +238,19 @@ class VnnoxPlaylogService
             ],
             'fanCoolerHealth' => $isOnline ? '100% EXCELLENT' : 'OFFLINE (Last online: ' . ($firstPlayer['lastOnlineTime'] ?? '-') . ')',
             'onlineStatus' => $isOnline,
-            'playerName' => $firstPlayer['name'] ?? 'mobilled 1',
+            'playerName' => $firstPlayer['name'] ?? ($truckId === 'truck_2' ? 'mobilled 2' : 'mobilled 1'),
             'sn' => $firstPlayer['sn'] ?? '-',
             'ip' => $firstPlayer['ip'] ?? '-',
         ];
 
-        Cache::put('vnnox_controller_status', $result, now()->addSeconds(60));
+        Cache::put($cacheKey, $result, now()->addSeconds(60));
         return $result;
     }
 
     /**
      * Get detailed playlog activity records directly from VNNOX API with 60s cache
      */
-    public function getPlaylogRecordsData(bool $forceRefresh = false): array
+    public function getPlaylogRecordsData(bool $forceRefresh = false, string $truckId = 'truck_1'): array
     {
         if (!$this->hasConfiguredCredentials()) {
             return [
@@ -253,12 +260,14 @@ class VnnoxPlaylogService
             ];
         }
 
-        if (!$forceRefresh && Cache::has('vnnox_playlog_records')) {
-            return Cache::get('vnnox_playlog_records');
+        $cacheKey = "vnnox_playlog_records_{$truckId}";
+
+        if (!$forceRefresh && Cache::has($cacheKey)) {
+            return Cache::get($cacheKey);
         }
 
         // Try direct log endpoint first
-        $vnnoxLogs = $this->apiClient->get('/v2/playlog/overview/batch');
+        $vnnoxLogs = $this->apiClient->get('/v2/playlog/overview/batch', [], $truckId);
 
         if ($vnnoxLogs['success'] && isset($vnnoxLogs['data']['rows']) && count($vnnoxLogs['data']['rows']) > 0) {
             $records = [];
@@ -271,6 +280,7 @@ class VnnoxPlaylogService
                     'durasi' => $log['duration'] ?? 0,
                     'status' => ($log['resultCode'] ?? 0) === 0 ? 'Success' : 'Error',
                     'infoSistem' => $log['remark'] ?? 'VNNOX Playlog Logged',
+                    'truckId' => $truckId,
                 ];
             }
             $result = [
@@ -278,12 +288,12 @@ class VnnoxPlaylogService
                 'records' => $records,
                 'requiresEnterpriseAuth' => false,
             ];
-            Cache::put('vnnox_playlog_records', $result, now()->addSeconds(60));
+            Cache::put($cacheKey, $result, now()->addSeconds(60));
             return $result;
         }
 
         // Fetch real-time player status from working API /v2/player/list
-        $playerList = $this->apiClient->get('/v2/player/list', ['count' => 10]);
+        $playerList = $this->apiClient->get('/v2/player/list', ['count' => 10], $truckId);
 
         $records = [];
         if ($playerList['success'] && isset($playerList['data']['rows'])) {
@@ -291,7 +301,7 @@ class VnnoxPlaylogService
                 $isOnline = ($player['onlineStatus'] ?? 0) === 1;
                 $records[] = [
                     'id' => 'LOG-' . str_pad($idx + 1, 3, '0', STR_PAD_LEFT),
-                    'materi' => ($player['name'] ?? 'mobilled 1') . ' (' . ($player['productName'] ?? 'TU20Pro') . ')',
+                    'materi' => ($player['name'] ?? ($truckId === 'truck_2' ? 'mobilled 2' : 'mobilled 1')) . ' (' . ($player['productName'] ?? 'TU20Pro') . ')',
                     'klien' => 'SN: ' . ($player['sn'] ?? '-'),
                     'stempelWaktu' => ($player['lastOnlineTime'] ?? date('Y-m-d H:i:s')) . ' WIB',
                     'durasi' => 30,
@@ -299,6 +309,7 @@ class VnnoxPlaylogService
                     'infoSistem' => $isOnline
                         ? 'Novastar Player Online (IP: ' . ($player['ip'] ?? '-') . ')'
                         : 'Novastar Player Offline (Last Online: ' . ($player['lastOnlineTime'] ?? '-') . ')',
+                    'truckId' => $truckId,
                 ];
             }
         }
@@ -314,7 +325,7 @@ class VnnoxPlaylogService
                 : null,
         ];
 
-        Cache::put('vnnox_playlog_records', $result, now()->addSeconds(60));
+        Cache::put($cacheKey, $result, now()->addSeconds(60));
         return $result;
     }
 

@@ -37,7 +37,7 @@ export default function Dashboard({
 
   // Map GPS data
   const gpsTruck1 = gpsPositions.find(p => p.unit?.includes('9731') || p.imei === '0356153590691330') || gpsPositions[0] || {};
-  const gpsTruck2 = gpsPositions.find(p => p.unit?.includes('9142') || p.imei !== '0356153590691330') || gpsPositions[1] || gpsPositions[0] || {};
+  const gpsTruck2 = gpsPositions.find(p => p.unit?.includes('9729') || p.unit?.includes('9142') || p.imei === '0866833070213829') || gpsPositions[1] || gpsPositions[0] || {};
   const currentGps = selectedTruckId === 'truck_1' ? gpsTruck1 : gpsTruck2;
 
   // Map Novastar / VNNOX data
@@ -60,8 +60,8 @@ export default function Dashboard({
     estimated_reach: 0,
   };
 
-  const truckName = selectedTruckId === 'truck_1' ? 'Truk LED 01 (B 9731 JXS)' : 'Truk LED 02 (B 9142 SXZ)';
-  const truckPlate = selectedTruckId === 'truck_1' ? 'B 9731 JXS' : 'B 9142 SXZ';
+  const truckName = selectedTruckId === 'truck_1' ? 'Truk LED 01 (B 9731 JXS)' : 'Truk LED 02 (B 9729 JXS)';
+  const truckPlate = selectedTruckId === 'truck_1' ? 'B 9731 JXS' : 'B 9729 JXS';
 
   const isGpsOnline = !!(currentGps.unit || currentGps.imei);
   const isGpsMoving = (currentGps.Speed || currentGps.last_speed || 0) > 0 || currentGps.status === 'MOVE';
@@ -112,7 +112,7 @@ export default function Dashboard({
             }`}
           >
             <span className={`w-2 h-2 rounded-full ${cctvData?.truck_2?.online ? 'bg-emerald-400' : 'bg-slate-400'}`}></span>
-            Truk LED 02 (B 9142 SXZ)
+            Truk LED 02 (B 9729 JXS)
           </button>
         </div>
       </div>

@@ -39,42 +39,81 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
 
-  const fleetList = realPositions.length > 0 
-    ? realPositions.map(pos => ({
-        id: pos.imei,
-        name: `${pos.unit || 'Truk LED'} (${pos.imei})`,
-        gpsName: pos.unit || 'Truk LED',
-        speed: pos.Speed || pos.last_speed || 0,
-        address: pos.address || 'Posisi GPS Armada',
-        lat: parseFloat(pos.lo_lat || pos.last_latitude) || -6.315447,
-        lng: parseFloat(pos.lo_long || pos.last_longitude) || 106.634666,
-        status: pos.status === 'MOVE' ? 'Berkendara (LIVE)' : 'Berhenti (OFF)',
-        lastTime: pos.last_upd || 'Terbaru',
-        driver: pos.drv || 'Driver Operasional',
-        engine: pos.engi || (pos.status === 'MOVE' ? 'ON' : 'OFF'),
-        imei: pos.imei
-      }))
-    : realDevices.length > 0
-    ? realDevices.map(dev => ({
-        id: dev.imei,
-        name: `${dev.gps_name} (${dev.tracker_type || 'GPS'})`,
-        gpsName: dev.gps_name,
-        speed: dev.last_speed || 0,
-        address: dev.last_address || 'BSD City, Tangerang',
-        lat: parseFloat(dev.last_latitude) || -6.315447,
-        lng: parseFloat(dev.last_longitude) || 106.634666,
-        status: dev.movement_status === 'OFF' ? 'Berhenti (OFF)' : 'Berkendara (LIVE)',
-        lastTime: dev.last_time || 'Terbaru',
-        driver: dev.driver_name || 'Driver Operasional',
-        engine: dev.last_engine === 1 ? 'ON' : 'OFF',
-        imei: dev.imei
-      }))
-    : [
-        { id: '0356153590691330', name: 'B 9731 JXS (FL 168)', gpsName: 'B 9731 JXS', speed: 0, address: 'BSD City, Situ Gadung, Pagedangan, Kabupaten Tangerang, Banten, 15341', lat: -6.315447, lng: 106.634666, status: 'Berhenti (OFF)', lastTime: '2026-08-06 19:03:42', driver: 'Driver Operasional', engine: 'OFF', imei: '0356153590691330' }
-      ];
+  // Deduplicate and build standard fleet list
+  const fleetList = useMemo(() => {
+    const list = [];
+    const seenImeis = new Set();
+
+    const addTruck = (t) => {
+      if (t && t.imei && !seenImeis.has(t.imei)) {
+        seenImeis.add(t.imei);
+        list.push(t);
+      }
+    };
+
+    const formatTruckDisplayName = (unit, imei, defaultFallback) => {
+      const u = (unit || '').toUpperCase();
+      if (u.includes('9731') || imei === '0356153590691330') {
+        return 'Truk 01 (B 9731 JXS)';
+      }
+      if (u.includes('9729') || u.includes('9142') || imei === '0866833070213829') {
+        return 'Truk 02 (B 9729 JXS)';
+      }
+      return defaultFallback || unit || 'Truk LED';
+    };
+
+    if (realPositions.length > 0) {
+      realPositions.forEach(pos => {
+        const displayName = formatTruckDisplayName(pos.unit, pos.imei, 'Truk LED');
+        addTruck({
+          id: pos.imei,
+          name: `${displayName} (${pos.imei})`,
+          gpsName: displayName,
+          speed: pos.Speed || pos.last_speed || 0,
+          address: pos.address || 'Posisi GPS Armada',
+          lat: parseFloat(pos.lo_lat || pos.last_latitude) || -6.315447,
+          lng: parseFloat(pos.lo_long || pos.last_longitude) || 106.634666,
+          status: pos.status === 'MOVE' ? 'Berkendara (LIVE)' : 'Berhenti (OFF)',
+          lastTime: pos.last_upd || 'Terbaru',
+          driver: pos.drv || 'Driver Operasional',
+          engine: pos.engi || (pos.status === 'MOVE' ? 'ON' : 'OFF'),
+          imei: pos.imei
+        });
+      });
+    }
+
+    if (realDevices.length > 0) {
+      realDevices.forEach(dev => {
+        const displayName = formatTruckDisplayName(dev.gps_name, dev.imei, 'Truk LED');
+        addTruck({
+          id: dev.imei,
+          name: `${displayName} (${dev.tracker_type || 'GPS'})`,
+          gpsName: displayName,
+          speed: dev.last_speed || 0,
+          address: dev.last_address || 'BSD City, Tangerang',
+          lat: parseFloat(dev.last_latitude) || -6.315447,
+          lng: parseFloat(dev.last_longitude) || 106.634666,
+          status: dev.movement_status === 'OFF' ? 'Berhenti (OFF)' : 'Berkendara (LIVE)',
+          lastTime: dev.last_time || 'Terbaru',
+          driver: dev.driver_name || 'Driver Operasional',
+          engine: dev.last_engine === 1 ? 'ON' : 'OFF',
+          imei: dev.imei
+        });
+      });
+    }
+
+    if (list.length === 0) {
+      list.push(
+        { id: '0356153590691330', name: 'Truk 01 (B 9731 JXS)', gpsName: 'Truk 01 (B 9731 JXS)', speed: 0, address: 'BSD City, Tangerang', lat: -6.25245, lng: 106.61932, status: 'Berhenti (OFF)', lastTime: 'Terbaru', driver: 'Driver Operasional', engine: 'OFF', imei: '0356153590691330' },
+        { id: '0866833070213829', name: 'Truk 02 (B 9729 JXS)', gpsName: 'Truk 02 (B 9729 JXS)', speed: 0, address: 'Gading Serpong, Tangerang', lat: -6.25205, lng: 106.619385, status: 'Berhenti (OFF)', lastTime: 'Terbaru', driver: 'Driver Operasional', engine: 'OFF', imei: '0866833070213829' }
+      );
+    }
+
+    return list;
+  }, [realPositions, realDevices]);
 
   const [selectedTruckId, setSelectedTruckId] = useState(fleetList[0]?.id || '');
-  const activeTruck = fleetList.find(t => t.id === selectedTruckId) || fleetList[0];
+  const activeTruck = fleetList.find(t => String(t.id) === String(selectedTruckId)) || fleetList[0];
 
   const [rawHistoryPoints, setRawHistoryPoints] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -241,20 +280,29 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                   />
                 </div>
 
-                {/* Truck Selector */}
-                <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700">
-                  <span className="text-slate-500 uppercase font-bold text-[10px]">Pilih Armada:</span>
-                  <select
-                    value={selectedTruckId}
-                    onChange={(e) => setSelectedTruckId(e.target.value)}
-                    className="bg-transparent text-slate-900 font-bold focus:outline-none cursor-pointer"
-                  >
-                    {fleetList.map((truck) => (
-                      <option key={truck.id} value={truck.id} className="bg-white text-slate-900">
-                        {truck.name}
-                      </option>
-                    ))}
-                  </select>
+                {/* Truck Selector Tabs */}
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-1 flex items-center gap-1.5">
+                  {fleetList.map((truck, idx) => {
+                    const isSelected = String(truck.id) === String(selectedTruckId);
+                    const defaultName = idx === 0 ? 'Truk 01 (B 9731 JXS)' : 'Truk 02 (B 9729 JXS)';
+                    const tabTitle = truck.gpsName || defaultName;
+
+                    return (
+                      <button
+                        key={truck.id}
+                        type="button"
+                        onClick={() => setSelectedTruckId(truck.id)}
+                        className={`px-3.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
+                            : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-2xs'
+                        }`}
+                      >
+                        <span className={`w-2 h-2 rounded-full ${truck.status?.includes('LIVE') || truck.engine === 'ON' ? 'bg-emerald-400' : isSelected ? 'bg-blue-200' : 'bg-slate-400'}`}></span>
+                        {tabTitle}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {!isSelectedDateToday && (
@@ -420,18 +468,11 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                       <h3 className="font-bold text-slate-900 text-base">Status Armada</h3>
                     </div>
                     
-                    {/* Truck Selector Dropdown inside Status Armada Card */}
-                    <select
-                      value={selectedTruckId}
-                      onChange={(e) => setSelectedTruckId(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 text-slate-900 font-bold rounded-xl px-2.5 py-1 text-xs focus:outline-none cursor-pointer truncate max-w-[170px]"
-                    >
-                      {fleetList.map((truck) => (
-                        <option key={truck.id} value={truck.id} className="bg-white text-slate-900">
-                          {truck.name}
-                        </option>
-                      ))}
-                    </select>
+                    {/* Active Truck Badge */}
+                    <span className="px-3 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg text-xs font-extrabold flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                      {activeTruck?.gpsName || activeTruck?.name || 'Truk LED'}
+                    </span>
                   </div>
 
                   <div className="space-y-3">

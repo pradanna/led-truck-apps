@@ -1,0 +1,336 @@
+{
+  "_AppLayout-DH87l5aX.js": {
+    "file": "assets/AppLayout-DH87l5aX.js",
+    "name": "AppLayout",
+    "imports": [
+      "resources/js/app.jsx",
+      "_Sidebar-DeE4zV0P.js",
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_Sidebar-DeE4zV0P.js": {
+    "file": "assets/Sidebar-DeE4zV0P.js",
+    "name": "Sidebar",
+    "imports": [
+      "_video-DjwC7iZ8.js",
+      "resources/js/app.jsx"
+    ]
+  },
+  "_arrow-right-B1Cf0SB3.js": {
+    "file": "assets/arrow-right-B1Cf0SB3.js",
+    "name": "arrow-right",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_chart-column-iQXdevUn.js": {
+    "file": "assets/chart-column-iQXdevUn.js",
+    "name": "chart-column",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_circle-alert-DZxjgc5u.js": {
+    "file": "assets/circle-alert-DZxjgc5u.js",
+    "name": "circle-alert",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_eye-Ei4qIcjZ.js": {
+    "file": "assets/eye-Ei4qIcjZ.js",
+    "name": "eye",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_file-text-DFd2B7MK.js": {
+    "file": "assets/file-text-DFd2B7MK.js",
+    "name": "file-text",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_gauge-Cf4qiixm.js": {
+    "file": "assets/gauge-Cf4qiixm.js",
+    "name": "gauge",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_lock-BWKlOk9w.js": {
+    "file": "assets/lock-BWKlOk9w.js",
+    "name": "lock",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_map-pin-CQ0UNqyF.js": {
+    "file": "assets/map-pin-CQ0UNqyF.js",
+    "name": "map-pin",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_maximize-2-qitPcbbO.js": {
+    "file": "assets/maximize-2-qitPcbbO.js",
+    "name": "maximize-2",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_play-CIvT8caO.js": {
+    "file": "assets/play-CIvT8caO.js",
+    "name": "play",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_plus-CLXwY4TG.js": {
+    "file": "assets/plus-CLXwY4TG.js",
+    "name": "plus",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_refresh-cw-CRdpJeGj.js": {
+    "file": "assets/refresh-cw-CRdpJeGj.js",
+    "name": "refresh-cw",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_save-BDQ6YvZW.js": {
+    "file": "assets/save-BDQ6YvZW.js",
+    "name": "save",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_search-EYCinBpS.js": {
+    "file": "assets/search-EYCinBpS.js",
+    "name": "search",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_shield-check-ZOm7dt3g.js": {
+    "file": "assets/shield-check-ZOm7dt3g.js",
+    "name": "shield-check",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_trash-2-h5rB6pG3.js": {
+    "file": "assets/trash-2-h5rB6pG3.js",
+    "name": "trash-2",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_truck-Cnr-A4Xe.js": {
+    "file": "assets/truck-Cnr-A4Xe.js",
+    "name": "truck",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_tv-CdaYE6lH.js": {
+    "file": "assets/tv-CdaYE6lH.js",
+    "name": "tv",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_users-Cthcc7Tk.js": {
+    "file": "assets/users-Cthcc7Tk.js",
+    "name": "users",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "_video-DjwC7iZ8.js": {
+    "file": "assets/video-DjwC7iZ8.js",
+    "name": "video",
+    "imports": [
+      "resources/js/app.jsx"
+    ]
+  },
+  "_x-BvdPcFpU.js": {
+    "file": "assets/x-BvdPcFpU.js",
+    "name": "x",
+    "imports": [
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "resources/js/Pages/CampaignDocumentation.jsx": {
+    "file": "assets/CampaignDocumentation-adoN5AlK.js",
+    "name": "CampaignDocumentation",
+    "src": "resources/js/Pages/CampaignDocumentation.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_AppLayout-DH87l5aX.js",
+      "_plus-CLXwY4TG.js",
+      "_Sidebar-DeE4zV0P.js",
+      "_video-DjwC7iZ8.js",
+      "_x-BvdPcFpU.js",
+      "_play-CIvT8caO.js",
+      "_maximize-2-qitPcbbO.js",
+      "_map-pin-CQ0UNqyF.js",
+      "_eye-Ei4qIcjZ.js",
+      "_trash-2-h5rB6pG3.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_save-BDQ6YvZW.js"
+    ]
+  },
+  "resources/js/Pages/CctvMonitoring.jsx": {
+    "file": "assets/CctvMonitoring-BL2Bkj2k.js",
+    "name": "CctvMonitoring",
+    "src": "resources/js/Pages/CctvMonitoring.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_AppLayout-DH87l5aX.js",
+      "_video-DjwC7iZ8.js",
+      "_Sidebar-DeE4zV0P.js",
+      "_refresh-cw-CRdpJeGj.js",
+      "_gauge-Cf4qiixm.js",
+      "_users-Cthcc7Tk.js",
+      "_eye-Ei4qIcjZ.js",
+      "_x-BvdPcFpU.js",
+      "_arrow-right-B1Cf0SB3.js",
+      "_maximize-2-qitPcbbO.js"
+    ]
+  },
+  "resources/js/Pages/Dashboard.jsx": {
+    "file": "assets/Dashboard-CzNR3cvD.js",
+    "name": "Dashboard",
+    "src": "resources/js/Pages/Dashboard.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_AppLayout-DH87l5aX.js",
+      "_truck-Cnr-A4Xe.js",
+      "_tv-CdaYE6lH.js",
+      "_Sidebar-DeE4zV0P.js",
+      "_eye-Ei4qIcjZ.js",
+      "_video-DjwC7iZ8.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_map-pin-CQ0UNqyF.js",
+      "_chart-column-iQXdevUn.js",
+      "_file-text-DFd2B7MK.js"
+    ]
+  },
+  "resources/js/Pages/GpsTracking.jsx": {
+    "file": "assets/GpsTracking-CWav7sqo.js",
+    "name": "GpsTracking",
+    "src": "resources/js/Pages/GpsTracking.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_Sidebar-DeE4zV0P.js",
+      "_file-text-DFd2B7MK.js",
+      "_refresh-cw-CRdpJeGj.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_map-pin-CQ0UNqyF.js",
+      "_truck-Cnr-A4Xe.js",
+      "_video-DjwC7iZ8.js"
+    ]
+  },
+  "resources/js/Pages/Login.jsx": {
+    "file": "assets/Login-CUHZIGZq.js",
+    "name": "Login",
+    "src": "resources/js/Pages/Login.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_tv-CdaYE6lH.js",
+      "_video-DjwC7iZ8.js",
+      "_chart-column-iQXdevUn.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_lock-BWKlOk9w.js",
+      "_arrow-right-B1Cf0SB3.js"
+    ]
+  },
+  "resources/js/Pages/PlaylogPlaylist.jsx": {
+    "file": "assets/PlaylogPlaylist-U5LHKwFG.js",
+    "name": "PlaylogPlaylist",
+    "src": "resources/js/Pages/PlaylogPlaylist.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_AppLayout-DH87l5aX.js",
+      "_video-DjwC7iZ8.js",
+      "_plus-CLXwY4TG.js",
+      "_lock-BWKlOk9w.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_Sidebar-DeE4zV0P.js",
+      "_play-CIvT8caO.js",
+      "_file-text-DFd2B7MK.js",
+      "_search-EYCinBpS.js",
+      "_x-BvdPcFpU.js",
+      "_save-BDQ6YvZW.js"
+    ]
+  },
+  "resources/js/Pages/ReportDetail.jsx": {
+    "file": "assets/ReportDetail-Bzc3YZK4.js",
+    "name": "ReportDetail",
+    "src": "resources/js/Pages/ReportDetail.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_Sidebar-DeE4zV0P.js",
+      "_play-CIvT8caO.js",
+      "_truck-Cnr-A4Xe.js",
+      "_refresh-cw-CRdpJeGj.js",
+      "_chart-column-iQXdevUn.js",
+      "_video-DjwC7iZ8.js",
+      "_eye-Ei4qIcjZ.js",
+      "_gauge-Cf4qiixm.js",
+      "_users-Cthcc7Tk.js",
+      "_shield-check-ZOm7dt3g.js",
+      "_search-EYCinBpS.js",
+      "_map-pin-CQ0UNqyF.js"
+    ]
+  },
+  "resources/js/Pages/Settings.jsx": {
+    "file": "assets/Settings-CmfcTn9C.js",
+    "name": "Settings",
+    "src": "resources/js/Pages/Settings.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "resources/js/app.jsx",
+      "_AppLayout-DH87l5aX.js",
+      "_Sidebar-DeE4zV0P.js",
+      "_circle-alert-DZxjgc5u.js",
+      "_video-DjwC7iZ8.js",
+      "_users-Cthcc7Tk.js",
+      "_shield-check-ZOm7dt3g.js",
+      "_save-BDQ6YvZW.js",
+      "_tv-CdaYE6lH.js",
+      "_lock-BWKlOk9w.js",
+      "_trash-2-h5rB6pG3.js",
+      "_x-BvdPcFpU.js"
+    ]
+  },
+  "resources/js/app.jsx": {
+    "file": "assets/app-DjWQ75nV.js",
+    "name": "app",
+    "src": "resources/js/app.jsx",
+    "isEntry": true,
+    "dynamicImports": [
+      "resources/js/Pages/CampaignDocumentation.jsx",
+      "resources/js/Pages/CctvMonitoring.jsx",
+      "resources/js/Pages/Dashboard.jsx",
+      "resources/js/Pages/GpsTracking.jsx",
+      "resources/js/Pages/Login.jsx",
+      "resources/js/Pages/PlaylogPlaylist.jsx",
+      "resources/js/Pages/ReportDetail.jsx",
+      "resources/js/Pages/Settings.jsx"
+    ],
+    "css": [
+      "assets/app-5UQT4Dsi.css"
+    ]
+  }
+}

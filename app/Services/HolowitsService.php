@@ -19,11 +19,11 @@ class HolowitsService
             'truck_1' => [
                 'id' => 'truck_1',
                 'name' => 'Truk LED 01 (B 9731 JXS)',
-                'nvr_ip' => '103.144.175.22',
-                'http_port' => 443,
-                'rtsp_port' => 554,
+                'nvr_ip' => '31.58.158.133',
+                'http_port' => 70,
+                'rtsp_port' => 70,
                 'username' => 'admin',
-                'password' => 'Admin12345!',
+                'password' => 'Mobilled9731',
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
                     'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Traffic & AI)', 'type' => 'traffic'],
@@ -32,11 +32,11 @@ class HolowitsService
             'truck_2' => [
                 'id' => 'truck_2',
                 'name' => 'Truk LED 02 (B 9142 SXZ)',
-                'nvr_ip' => '103.144.175.28',
-                'http_port' => 443,
-                'rtsp_port' => 554,
+                'nvr_ip' => '151.242.116.16',
+                'http_port' => 1945,
+                'rtsp_port' => 1945,
                 'username' => 'admin',
-                'password' => 'Admin12345!',
+                'password' => 'Mobilled9731',
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
                     'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Traffic & AI)', 'type' => 'traffic'],
@@ -108,14 +108,14 @@ webrtc:
 
 streams:
   truck_1_ch1:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/LiveMedia/ch1/Media1#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
   truck_1_ch2:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/LiveMedia/ch2/Media1#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
 
   truck_2_ch1:
-    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/LiveMedia/ch1/Media1#backchannel=0
+    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
   truck_2_ch2:
-    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/LiveMedia/ch2/Media1#backchannel=0
+    - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
 YAML;
 
         @file_put_contents($yamlPath, $yamlContent);

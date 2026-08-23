@@ -39,22 +39,11 @@ export default function AppLayout({
 
                 {/* PROGRESS BAR AT TOP OF CONTENT AREA */}
                 {isPageNavigating && (
-                    <div className="absolute top-0 inset-x-0 h-1 bg-blue-600 z-50 animate-pulse"></div>
+                    <div className="absolute top-0 inset-x-0 h-0.5 bg-blue-600 z-50 animate-pulse"></div>
                 )}
 
-                {/* NESTED PAGE CONTENT BODY WITH LOADING OVERLAY */}
+                {/* NESTED PAGE CONTENT BODY */}
                 <main className="flex-1 overflow-y-auto p-6 space-y-6 relative">
-                    {isPageNavigating && (
-                        <div className="absolute inset-0 bg-white/70 backdrop-blur-xs z-40 flex flex-col items-center justify-center space-y-3 min-h-[300px]">
-                            <div className="p-4 rounded-2xl bg-white shadow-xl border border-slate-200/90 flex items-center gap-3">
-                                <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                                <span className="text-xs font-extrabold text-slate-800 tracking-wide">
-                                    Mohon tunggu sebentar...
-                                </span>
-                            </div>
-                        </div>
-                    )}
-
                     {children}
                 </main>
             </div>

@@ -30,7 +30,9 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->midd
 Route::middleware('auth')->group(function () {
     // 1. Dashboard Overview
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
-    Route::get('/api/dashboard/live-data', [DashboardController::class, 'getLiveData']);
+    Route::get('/api/dashboard/gps', [DashboardController::class, 'getGpsData']);
+    Route::get('/api/dashboard/novastar', [DashboardController::class, 'getNovastarData']);
+    Route::get('/api/dashboard/traffic', [DashboardController::class, 'getTrafficData']);
 
     // 2. GPS Tracking (Viewable by All)
     Route::get('/gps-tracking', [GpsTrackingController::class, 'index'])->name('gps.tracking');

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import {
   LayoutDashboard,
@@ -25,6 +25,12 @@ import {
   FileText
 } from 'lucide-react';
 import AppLayout from '../Layouts/AppLayout';
+import {
+  SkeletonBox,
+  SkeletonMetricCard,
+  SkeletonActiveMedia,
+  SkeletonPlaylogList
+} from '../Components/DashboardSkeleton';
 
 export default function Dashboard({
   gpsDevices: initialGpsDevices = [],
@@ -35,40 +41,83 @@ export default function Dashboard({
   // 1. Truck Selector State: 'truck_1' or 'truck_2'
   const [selectedTruckId, setSelectedTruckId] = useState('truck_1');
 
-  // Async Live States (Lazy loaded in background)
-  const [gpsDevices, setGpsDevices] = useState(initialGpsDevices);
+  // 2. ISOLATED STATES & LOADING FLAGS
+  // A. GPS Tracker State
   const [gpsPositions, setGpsPositions] = useState(initialGpsPositions);
+  const [isGpsLoading, setIsGpsLoading] = useState(initialGpsPositions.length === 0);
+
+  // B. Novastar / VNNOX Videotron State
   const [novastarData, setNovastarData] = useState(initialNovastarData);
+  const [isNovastarLoading, setIsNovastarLoading] = useState(
+    !(initialNovastarData?.playlist?.items?.length > 0 || initialNovastarData?.controller?.processorChip)
+  );
+
+  // C. CCTV & AI Traffic State
   const [cctvData, setCctvData] = useState(initialCctvData);
-  const [isLoadingLive, setIsLoadingLive] = useState(false);
+  const [isTrafficLoading, setIsTrafficLoading] = useState(!initialCctvData?.truck_1);
 
-  // Background lazy-fetch live telemetry with AbortController to cancel when switching menus
-  React.useEffect(() => {
+  // =========================================================================
+  // 3. PARALLEL & INDEPENDENT FETCH EFFECTS (WITH AUTO-ABORT)
+  // =========================================================================
+
+  // Fetch 1: GPS Data (Independent)
+  useEffect(() => {
     const controller = new AbortController();
-    setIsLoadingLive(true);
-
-    fetch('/api/dashboard/live-data', { signal: controller.signal })
+    fetch('/api/dashboard/gps', { signal: controller.signal })
       .then(res => res.json())
       .then(data => {
-        if (data.success) {
-          if (data.gpsDevices) setGpsDevices(data.gpsDevices);
-          if (data.gpsPositions) setGpsPositions(data.gpsPositions);
-          if (data.novastarData) setNovastarData(data.novastarData);
-          if (data.cctvData) setCctvData(data.cctvData);
+        if (data.success && data.gpsPositions) {
+          setGpsPositions(data.gpsPositions);
         }
       })
       .catch(err => {
-        if (err.name !== 'AbortError') {
-          console.error("Dashboard live data lazyload:", err);
+        if (err.name !== 'AbortError') console.error('GPS fetch error:', err);
+      })
+      .finally(() => setIsGpsLoading(false));
+
+    return () => controller.abort();
+  }, []);
+
+  // Fetch 2: Novastar & Playlist Data (Independent per Truck)
+  useEffect(() => {
+    const controller = new AbortController();
+    setIsNovastarLoading(true);
+
+    fetch(`/api/dashboard/novastar?truck_id=${selectedTruckId}`, { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setNovastarData({
+            playlist: data.playlist,
+            controller: data.controller,
+            playlogs: data.playlogs,
+          });
         }
       })
-      .finally(() => {
-        setIsLoadingLive(false);
-      });
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error('Novastar fetch error:', err);
+      })
+      .finally(() => setIsNovastarLoading(false));
 
-    return () => {
-      controller.abort(); // Interupsi dan batalkan request saat pindah menu
-    };
+    return () => controller.abort();
+  }, [selectedTruckId]);
+
+  // Fetch 3: CCTV & AI Traffic (Independent)
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/dashboard/traffic', { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.cctvData) {
+          setCctvData(data.cctvData);
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error('Traffic fetch error:', err);
+      })
+      .finally(() => setIsTrafficLoading(false));
+
+    return () => controller.abort();
   }, []);
 
   // Map GPS data
@@ -156,100 +205,116 @@ export default function Dashboard({
       {/* 2. TOP 4 EXECUTIVE OVERVIEW METRIC CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* CARD 1: STATUS KENDARAAN (DARI FOXLOGGER GPS) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Status Kendaraan
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
-              <Truck className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-slate-900 truncate">
-              {currentGps.unit || truckPlate}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className={`w-2 h-2 rounded-full ${isGpsMoving ? 'bg-emerald-500 animate-pulse' : (isGpsOnline ? 'bg-amber-500' : 'bg-slate-400')}`}></span>
-              <span className="text-xs font-bold text-slate-700">
-                {isGpsMoving ? `Bergerak (${currentGps.Speed || currentGps.last_speed || 0} km/j)` : (isGpsOnline ? 'Parkir / Mesin Mati' : 'GPS Offline')}
+        {isGpsLoading ? (
+          <SkeletonMetricCard />
+        ) : (
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                Status Kendaraan
               </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+                <Truck className="w-4 h-4" />
+              </div>
             </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
-              Foxlogger GPS API
+            <div className="mt-3">
+              <div className="text-xl font-black text-slate-900 truncate">
+                {currentGps.unit || truckPlate}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <span className={`w-2 h-2 rounded-full ${isGpsMoving ? 'bg-emerald-500 animate-pulse' : (isGpsOnline ? 'bg-amber-500' : 'bg-slate-400')}`}></span>
+                <span className="text-xs font-bold text-slate-700">
+                  {isGpsMoving ? `Bergerak (${currentGps.Speed || currentGps.last_speed || 0} km/j)` : (isGpsOnline ? 'Parkir / Mesin Mati' : 'GPS Offline')}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                Foxlogger GPS API
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* CARD 2: STATUS LED SCREEN (DARI NOVASTAR / VNNOX) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Status Layar LED
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
-              <Tv className="w-4 h-4" />
+        {isNovastarLoading ? (
+          <SkeletonMetricCard />
+        ) : (
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                Status Layar LED
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                <Tv className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="text-xl font-black text-slate-900">
+                {isLedOnline ? 'AKTIF (PLAYING)' : 'STANDBY / OFFLINE'}
+              </div>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-emerald-600 font-bold">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{controllerStatus.processorChip || 'NovaStar TU20Pro'}</span>
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                NovaCloud VNNOX API
+              </div>
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-slate-900">
-              {isLedOnline ? 'AKTIF (PLAYING)' : 'STANDBY / OFFLINE'}
-            </div>
-            <div className="flex items-center gap-1.5 mt-1.5 text-xs text-emerald-600 font-bold">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>{controllerStatus.processorChip || 'NovaStar TU20Pro'}</span>
-            </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
-              NovaCloud VNNOX API
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* CARD 3: DURASI TAYANG (DARI NOVASTAR / VNNOX) */}
-        <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Durasi Tayang Hari Ini
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-              <Clock className="w-4 h-4" />
+        {isNovastarLoading ? (
+          <SkeletonMetricCard />
+        ) : (
+          <div className="bg-white border border-slate-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">
+                Durasi Tayang Hari Ini
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="text-xl font-black text-slate-900 font-mono">
+                {isLedOnline ? `${playlistItems.length * 30} Detik / Loop` : '0 Jam 00 Menit'}
+              </div>
+              <div className="text-xs text-amber-700 font-bold mt-1.5">
+                {isLedOnline ? `${playlistItems.length} Materi Aktif Terjadwal` : 'Videotron Standby'}
+              </div>
+              <div className="text-[10px] text-slate-400 mt-1 font-mono">
+                NovaStar TU20Pro Sync
+              </div>
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-xl font-black text-slate-900 font-mono">
-              {isLedOnline ? `${playlistItems.length * 30} Detik / Loop` : '0 Jam 00 Menit'}
-            </div>
-            <div className="text-xs text-amber-700 font-bold mt-1.5">
-              {isLedOnline ? `${playlistItems.length} Materi Aktif Terjadwal` : 'Videotron Standby'}
-            </div>
-            <div className="text-[10px] text-slate-400 mt-1 font-mono">
-              NovaStar TU20Pro Sync
-            </div>
-          </div>
-        </div>
+        )}
 
         {/* CARD 4: ESTIMASI JANGKAUAN AUDIENS (DARI HOLOWITS CCTV) */}
-        <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-extrabold text-blue-700 uppercase tracking-wider">
-              Estimasi Jangkauan Audiens
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Eye className="w-4 h-4" />
+        {isTrafficLoading ? (
+          <SkeletonMetricCard />
+        ) : (
+          <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-200/90 rounded-2xl p-5 shadow-xs flex flex-col justify-between">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-extrabold text-blue-700 uppercase tracking-wider">
+                Estimasi Jangkauan Audiens
+              </span>
+              <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                <Eye className="w-4 h-4" />
+              </div>
+            </div>
+            <div className="mt-3">
+              <div className="text-2xl font-black text-blue-900 font-mono">
+                {Number(traffic.estimated_reach || 0).toLocaleString('id-ID')}
+              </div>
+              <div className="text-xs text-blue-700 font-bold mt-1.5">
+                {truckCctv?.online ? 'Impresi Lalu Lintas Rute' : (truckCctv?.status_message || 'NVR Belum Terhubung')}
+              </div>
+              <div className="text-[10px] text-blue-500 mt-1 font-mono">
+                HOLOWITS AI Vision Counter
+              </div>
             </div>
           </div>
-          <div className="mt-3">
-            <div className="text-2xl font-black text-blue-900 font-mono">
-              {Number(traffic.estimated_reach || 0).toLocaleString('id-ID')}
-            </div>
-            <div className="text-xs text-blue-700 font-bold mt-1.5">
-              {truckCctv?.online ? 'Impresi Lalu Lintas Rute' : (truckCctv?.status_message || 'NVR Belum Terhubung')}
-            </div>
-            <div className="text-[10px] text-blue-500 mt-1 font-mono">
-              HOLOWITS AI Vision Counter
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* 3. DUA KOLOM SECTION UTAMA */}
@@ -271,7 +336,9 @@ export default function Dashboard({
               </Link>
             </div>
 
-            {activeMaterial ? (
+            {isNovastarLoading ? (
+              <SkeletonActiveMedia />
+            ) : activeMaterial ? (
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center text-emerald-400 font-mono text-xs font-bold shrink-0">
@@ -323,7 +390,17 @@ export default function Dashboard({
               </Link>
             </div>
 
-            {isGpsOnline ? (
+            {isGpsLoading ? (
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3 animate-pulse">
+                <div className="h-3 w-32 bg-slate-200 rounded" />
+                <div className="h-4 w-3/4 bg-slate-300 rounded" />
+                <div className="grid grid-cols-3 gap-3 pt-2 border-t border-slate-200">
+                  <div className="h-8 bg-slate-200 rounded" />
+                  <div className="h-8 bg-slate-200 rounded" />
+                  <div className="h-8 bg-slate-200 rounded" />
+                </div>
+              </div>
+            ) : isGpsOnline ? (
               <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3">
                 <div>
                   <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
@@ -385,7 +462,9 @@ export default function Dashboard({
             </div>
 
             <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-              {playlogRecords.length > 0 ? (
+              {isNovastarLoading ? (
+                <SkeletonPlaylogList />
+              ) : playlogRecords.length > 0 ? (
                 playlogRecords.slice(0, 4).map((log, idx) => (
                   <div
                     key={log.id || idx}

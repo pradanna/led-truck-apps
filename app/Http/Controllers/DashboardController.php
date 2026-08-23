@@ -52,26 +52,48 @@ class DashboardController extends Controller
     }
 
     /**
-     * API endpoint to asynchronously fetch live telemetry for all components
+     * API endpoint to asynchronously fetch only GPS telemetry
      */
-    public function getLiveData(Request $request)
+    public function getGpsData(Request $request)
     {
         $devices = $this->foxlogger->getDeviceList();
         $positions = $this->foxlogger->getReportPosition();
-        $playlistResult = $this->vnnox->getPlaylistData();
-        $controllerStatus = $this->vnnox->getNovastarControllerStatus();
-        $playlogResult = $this->vnnox->getPlaylogRecordsData();
-        $cctvData = $this->holowits->getLiveMonitoringData();
 
         return response()->json([
             'success' => true,
             'gpsDevices' => $devices,
             'gpsPositions' => $positions,
-            'novastarData' => [
-                'playlist' => $playlistResult,
-                'controller' => $controllerStatus,
-                'playlogs' => $playlogResult,
-            ],
+        ]);
+    }
+
+    /**
+     * API endpoint to asynchronously fetch only Novastar / VNNOX videotron & playlog
+     */
+    public function getNovastarData(Request $request)
+    {
+        $truckId = $request->query('truck_id', 'truck_1');
+        $playlistResult = $this->vnnox->getPlaylistData(false, $truckId);
+        $controllerStatus = $this->vnnox->getNovastarControllerStatus(false, $truckId);
+        $playlogResult = $this->vnnox->getPlaylogRecordsData(false, $truckId);
+
+        return response()->json([
+            'success' => true,
+            'playlist' => $playlistResult,
+            'controller' => $controllerStatus,
+            'playlogs' => $playlogResult,
+        ]);
+    }
+
+    /**
+     * API endpoint to asynchronously fetch only CCTV & AI Traffic data
+     */
+    public function getTrafficData(Request $request)
+    {
+        $force = $request->boolean('force', false);
+        $cctvData = $this->holowits->getLiveMonitoringData($force);
+
+        return response()->json([
+            'success' => true,
             'cctvData' => $cctvData,
         ]);
     }

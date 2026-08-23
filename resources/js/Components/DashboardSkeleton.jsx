@@ -52,3 +52,33 @@ export function SkeletonPlaylogList() {
     </div>
   );
 }
+
+export function CctvCameraCardSkeleton() {
+  return (
+    <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-3 animate-pulse">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 rounded-full bg-slate-300" />
+          <div className="h-4 w-32 bg-slate-300 rounded" />
+        </div>
+        <div className="h-5 w-20 bg-slate-200 rounded-full" />
+      </div>
+      
+      {/* 16:9 Aspect Video Frame Skeleton */}
+      <div className="w-full aspect-video bg-slate-900/80 rounded-xl flex flex-col items-center justify-center relative overflow-hidden">
+        <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center mb-2">
+          <div className="w-4 h-4 bg-slate-600 rounded" />
+        </div>
+        <div className="h-3 w-36 bg-slate-700 rounded" />
+      </div>
+
+      <div className="flex items-center justify-between pt-1">
+        <div className="h-3 w-28 bg-slate-200 rounded" />
+        <div className="flex items-center gap-1.5">
+          <div className="h-7 w-7 bg-slate-200 rounded-lg" />
+          <div className="h-7 w-7 bg-slate-200 rounded-lg" />
+        </div>
+      </div>
+    </div>
+  );
+}

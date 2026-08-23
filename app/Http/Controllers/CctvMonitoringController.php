@@ -47,6 +47,28 @@ class CctvMonitoringController extends Controller
     }
 
     /**
+     * API endpoint to get CCTV status and feeds for a single truck independently
+     */
+    public function getTruckStreamData(Request $request, string $truckId)
+    {
+        $force = $request->boolean('force', false);
+        $configs = $this->holowits->getTruckConfigs();
+        $truckConfig = $configs[$truckId] ?? null;
+
+        if (!$truckConfig) {
+            return response()->json(['success' => false, 'message' => 'Truk tidak ditemukan'], 404);
+        }
+
+        $truckStatus = $this->holowits->queryTruckNvrStatus($truckConfig);
+
+        return response()->json([
+            'success' => true,
+            'truck_id' => $truckId,
+            'data' => $truckStatus,
+        ]);
+    }
+
+    /**
      * API endpoint to update NVR Public IP and configurations for a truck
      */
     public function updateSettings(Request $request)

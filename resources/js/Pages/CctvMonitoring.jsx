@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import AppLayout from '../Layouts/AppLayout';
 import WebRtcPlayer from '../Components/WebRtcPlayer';
+import { CctvCameraCardSkeleton } from '../Components/DashboardSkeleton';
 
 export default function CctvMonitoring({ monitoringData = {} }) {
   const [data, setData] = useState(monitoringData);
@@ -40,6 +41,10 @@ export default function CctvMonitoring({ monitoringData = {} }) {
   const [activePtzCamKey, setActivePtzCamKey] = useState(null); // key of camera with active PTZ overlay
   const [fullscreenCam, setFullscreenCam] = useState(null);
   const [fullscreenState, setFullscreenState] = useState('connected');
+
+  // Isolated loading states per truck
+  const [isTruck1Loading, setIsTruck1Loading] = useState(!monitoringData?.truck_1?.channels?.length);
+  const [isTruck2Loading, setIsTruck2Loading] = useState(!monitoringData?.truck_2?.channels?.length);
 
   const truck1 = data?.truck_1 || {};
   const truck2 = data?.truck_2 || {};
@@ -69,7 +74,65 @@ export default function CctvMonitoring({ monitoringData = {} }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Poll traffic & NVR telemetry data every 30 seconds (optimal for multi-user load)
+  // Parallel & Isolated Micro-fetch for Truk 01 and Truk 02
+  useEffect(() => {
+    const controller = new AbortController();
+
+    // 1. Fetch Truk 01 Independently
+    fetch('/api/cctv/truck/truck_1', { signal: controller.signal })
+      .then(res => res.json())
+      .then(resJson => {
+        if (resJson.success && resJson.data) {
+          setData(prev => {
+            const next = { ...prev, truck_1: resJson.data };
+            // Update summary
+            const t1 = resJson.data?.traffic || {};
+            const t2 = prev?.truck_2?.traffic || {};
+            next.summary = {
+              total_motorcycles: (t1.motorcycles || 0) + (t2.motorcycles || 0),
+              total_cars: (t1.cars || 0) + (t2.cars || 0),
+              total_pedestrians: (t1.pedestrians || 0) + (t2.pedestrians || 0),
+              total_buses: (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
+              grand_total_traffic: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
+            };
+            return next;
+          });
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error("Fetch Truck 1 CCTV error:", err);
+      })
+      .finally(() => setIsTruck1Loading(false));
+
+    // 2. Fetch Truk 02 Independently
+    fetch('/api/cctv/truck/truck_2', { signal: controller.signal })
+      .then(res => res.json())
+      .then(resJson => {
+        if (resJson.success && resJson.data) {
+          setData(prev => {
+            const next = { ...prev, truck_2: resJson.data };
+            const t1 = prev?.truck_1?.traffic || {};
+            const t2 = resJson.data?.traffic || {};
+            next.summary = {
+              total_motorcycles: (t1.motorcycles || 0) + (t2.motorcycles || 0),
+              total_cars: (t1.cars || 0) + (t2.cars || 0),
+              total_pedestrians: (t1.pedestrians || 0) + (t2.pedestrians || 0),
+              total_buses: (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
+              grand_total_traffic: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
+            };
+            return next;
+          });
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') console.error("Fetch Truck 2 CCTV error:", err);
+      })
+      .finally(() => setIsTruck2Loading(false));
+
+    return () => controller.abort(); // Auto abort saat pindah menu
+  }, []);
+
+  // Poll traffic & NVR telemetry data every 30 seconds
   useEffect(() => {
     const pollInterval = setInterval(() => {
       fetch('/api/cctv/stream-data')
@@ -459,7 +522,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-amber-600 font-mono">
-              {summary?.total_motorcycles ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.total_motorcycles ?? 0
+              )}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Unit terhitung NVR API</div>
           </div>
@@ -475,7 +542,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-blue-600 font-mono">
-              {summary?.total_cars ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.total_cars ?? 0
+              )}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan roda 4</div>
           </div>
@@ -491,7 +562,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-emerald-600 font-mono">
-              {summary?.total_pedestrians ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.total_pedestrians ?? 0
+              )}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Target orang (Face/Ped)</div>
           </div>
@@ -507,7 +582,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-purple-600 font-mono">
-              {summary?.total_buses ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.total_buses ?? 0
+              )}
             </div>
             <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan besar</div>
           </div>
@@ -523,7 +602,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-cyan-700 font-mono">
-              {summary?.grand_total_traffic ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.grand_total_traffic ?? 0
+              )}
             </div>
             <div className="text-[10px] text-slate-500 font-medium mt-0.5">
               Akumulasi sensor kamera
@@ -541,7 +624,11 @@ export default function CctvMonitoring({ monitoringData = {} }) {
           </div>
           <div className="mt-2">
             <div className="text-2xl font-black text-blue-900 font-mono">
-              {summary?.total_audience_reach ?? 0}
+              {isTruck1Loading && isTruck2Loading ? (
+                <div className="h-7 w-20 bg-slate-200 animate-pulse rounded" />
+              ) : (
+                summary?.total_audience_reach ?? 0
+              )}
             </div>
             <div className="text-[10px] text-blue-600 font-semibold mt-0.5">Total impresi tayangan</div>
           </div>
@@ -550,6 +637,19 @@ export default function CctvMonitoring({ monitoringData = {} }) {
 
       {/* CCTV STREAM VIDEO GRID (4 CAMERAS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {(activeFilter === 'all' || activeFilter === 'truck_1') && isTruck1Loading && (
+          <>
+            <CctvCameraCardSkeleton />
+            <CctvCameraCardSkeleton />
+          </>
+        )}
+        {(activeFilter === 'all' || activeFilter === 'truck_2') && isTruck2Loading && (
+          <>
+            <CctvCameraCardSkeleton />
+            <CctvCameraCardSkeleton />
+          </>
+        )}
+
         {filteredFeeds.map((feed, idx) => (
           <div
             key={`${feed.truckId}-${feed.channelId}-${idx}`}

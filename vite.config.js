@@ -12,4 +12,27 @@ export default defineConfig({
         react(),
         tailwindcss(),
     ],
+    optimizeDeps: {
+        include: [
+            'react',
+            'react-dom',
+            'react-dom/client',
+            'react/jsx-dev-runtime',
+            'react/jsx-runtime',
+            '@inertiajs/react',
+            'axios',
+            'lucide-react',
+            'leaflet',
+            'react-leaflet',
+        ],
+    },
+    server: {
+        warmup: {
+            clientFiles: [
+                'resources/js/app.jsx',
+                'resources/js/Layouts/AppLayout.jsx',
+                'resources/js/Components/Sidebar.jsx',
+            ],
+        },
+    },
 });

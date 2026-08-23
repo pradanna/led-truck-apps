@@ -637,235 +637,457 @@ export default function CctvMonitoring({ monitoringData = {} }) {
 
       {/* CCTV STREAM VIDEO GRID (4 CAMERAS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        {(activeFilter === 'all' || activeFilter === 'truck_1') && isTruck1Loading && (
-          <>
-            <CctvCameraCardSkeleton />
-            <CctvCameraCardSkeleton />
-          </>
-        )}
-        {(activeFilter === 'all' || activeFilter === 'truck_2') && isTruck2Loading && (
-          <>
-            <CctvCameraCardSkeleton />
-            <CctvCameraCardSkeleton />
-          </>
-        )}
+        {/* TRUK 01 CAMERAS (CH1 & CH2) */}
+        {(activeFilter === 'all' || activeFilter === 'truck_1') && (
+          isTruck1Loading ? (
+            <>
+              <CctvCameraCardSkeleton />
+              <CctvCameraCardSkeleton />
+            </>
+          ) : (
+            filteredFeeds.filter(f => f.truckId === 'truck_1').map((feed, idx) => (
+              <div
+                key={`${feed.truckId}-${feed.channelId}-${idx}`}
+                className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative"
+              >
+                {/* VIDEO PLAYER CONTAINER WITH HUD OVERLAY */}
+                <div className="relative aspect-video bg-slate-950 overflow-hidden select-none flex items-center justify-center">
+                  <WebRtcPlayer
+                    streamKey={`${feed.truckId}_${feed.channelId.toLowerCase()}`}
+                    isOnline={true}
+                    channelName={`${feed.truckName} - ${feed.channelName}`}
+                    fallbackImage={feed.liveImage}
+                    zoom={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1}
+                    panX={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panX || 0}
+                    panY={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panY || 0}
+                  />
 
-        {filteredFeeds.map((feed, idx) => (
-          <div
-            key={`${feed.truckId}-${feed.channelId}-${idx}`}
-            className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative"
-          >
-            {/* VIDEO PLAYER CONTAINER WITH HUD OVERLAY */}
-            <div className="relative aspect-video bg-slate-950 overflow-hidden select-none flex items-center justify-center">
-              {/* LIVE WEBRTC STREAM PLAYER EMBEDDED DIRECTLY IN APP */}
-              <WebRtcPlayer
-                streamKey={`${feed.truckId}_${feed.channelId.toLowerCase()}`}
-                isOnline={true}
-                channelName={`${feed.truckName} - ${feed.channelName}`}
-                fallbackImage={feed.liveImage}
-                zoom={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1}
-                panX={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panX || 0}
-                panY={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panY || 0}
-              />
+                  {/* LIVE ON-SCREEN FLOATING PTZ OVERLAY */}
+                  {activePtzCamKey === `${feed.truckId}-${feed.channelId}` && (
+                    <div className="absolute top-12 right-3 z-30 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-2xl flex flex-col items-center gap-2 select-none animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex items-center justify-between w-full pb-1 border-b border-slate-700/60 text-[10px] font-mono font-bold text-slate-300">
+                        <span className="flex items-center gap-1"><Sliders className="w-3 h-3 text-indigo-400" /> LIVE PTZ & ZOOM</span>
+                        <button
+                          onClick={() => setActivePtzCamKey(null)}
+                          className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
-              {/* LIVE ON-SCREEN FLOATING PTZ OVERLAY CONTROLS (NON-MODAL) */}
-              {activePtzCamKey === `${feed.truckId}-${feed.channelId}` && (
-                <div className="absolute top-12 right-3 z-30 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-2xl flex flex-col items-center gap-2 select-none animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center justify-between w-full pb-1 border-b border-slate-700/60 text-[10px] font-mono font-bold text-slate-300">
-                    <span className="flex items-center gap-1"><Sliders className="w-3 h-3 text-indigo-400" /> LIVE PTZ & ZOOM</span>
-                    <button
-                      onClick={() => setActivePtzCamKey(null)}
-                      className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                      {/* Directional Pad */}
+                      <div className="flex flex-col items-center gap-1.5 py-1">
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'UP')}
+                          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                          title="Pan Atas"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
 
-                  {/* Directional Pad */}
-                  <div className="flex flex-col items-center gap-1.5 py-1">
-                    <button
-                      onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'UP')}
-                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
-                      title="Pan Atas"
-                    >
-                      <ArrowUp className="w-4 h-4" />
-                    </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'LEFT')}
+                            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                            title="Pan Kiri"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </button>
 
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'LEFT')}
-                        className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
-                        title="Pan Kiri"
-                      >
-                        <ArrowLeft className="w-4 h-4" />
-                      </button>
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'STOP')}
+                            className="w-7 h-7 rounded-full bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 text-rose-300 text-[8px] font-mono font-bold flex items-center justify-center cursor-pointer"
+                            title="Reset Viewport"
+                          >
+                            1x
+                          </button>
 
-                      <button
-                        onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'STOP')}
-                        className="w-7 h-7 rounded-full bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 text-rose-300 text-[8px] font-mono font-bold flex items-center justify-center cursor-pointer"
-                        title="Reset Viewport"
-                      >
-                        1x
-                      </button>
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'RIGHT')}
+                            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                            title="Pan Kanan"
+                          >
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </div>
 
-                      <button
-                        onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'RIGHT')}
-                        className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
-                        title="Pan Kanan"
-                      >
-                        <ArrowRight className="w-4 h-4" />
-                      </button>
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'DOWN')}
+                          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                          title="Pan Bawah"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Zoom Controls */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-slate-700/60 w-full">
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_IN')}
+                          className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" /> + In
+                        </button>
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_OUT')}
+                          className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="w-3.5 h-3.5" /> - Out
+                        </button>
+                      </div>
+
+                      {/* Zoom Level Indicator */}
+                      <div className="text-[10px] font-mono text-emerald-400 bg-black/50 border border-slate-700 px-2 py-0.5 rounded text-center w-full">
+                        Zoom: {(feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1).toFixed(1)}x
+                      </div>
                     </div>
-
-                    <button
-                      onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'DOWN')}
-                      className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
-                      title="Pan Bawah"
-                    >
-                      <ArrowDown className="w-4 h-4" />
-                    </button>
-                  </div>
-
-                  {/* Zoom Controls */}
-                  <div className="flex items-center gap-1.5 pt-1 border-t border-slate-700/60 w-full">
-                    <button
-                      onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_IN')}
-                      className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
-                      title="Zoom In"
-                    >
-                      <ZoomIn className="w-3.5 h-3.5" /> + In
-                    </button>
-                    <button
-                      onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_OUT')}
-                      className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
-                      title="Zoom Out"
-                    >
-                      <ZoomOut className="w-3.5 h-3.5" /> - Out
-                    </button>
-                  </div>
-
-                  {/* Zoom Level Indicator */}
-                  <div className="text-[10px] font-mono text-emerald-400 bg-black/50 border border-slate-700 px-2 py-0.5 rounded text-center w-full">
-                    Zoom: {(feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1).toFixed(1)}x
-                  </div>
-                </div>
-              )}
-
-              {/* TOP HUD BAR */}
-              <div className="absolute top-0 inset-x-0 bg-linear-to-b from-black/80 via-black/40 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
-                <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-white font-mono font-black text-[10px] tracking-wider flex items-center gap-1 shadow-xs ${
-                    feed.online ? 'bg-emerald-600 animate-pulse' : 'bg-rose-600'
-                  }`}>
-                    <span className="w-1.5 h-1.5 rounded-full bg-white"></span> {feed.status}
-                  </span>
-                  <span className="bg-slate-900/80 border border-slate-700/80 text-slate-200 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold tracking-wide">
-                    {feed.channelId}: {feed.channelName}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <span className="bg-slate-900/80 border border-slate-700/80 text-emerald-400 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
-                    {feed.fps} FPS
-                  </span>
-                  <span className="bg-slate-900/80 border border-slate-700/80 text-blue-300 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
-                    {feed.bitrate}
-                  </span>
-                </div>
-              </div>
-
-              {/* BOTTOM HUD BAR */}
-              <div className="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/85 via-black/50 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
-                <div>
-                  <div className="text-white font-mono font-bold text-xs flex items-center gap-2 drop-shadow-md">
-                    <Clock className="w-3.5 h-3.5 text-blue-400" />
-                    <span>{new Date().toISOString().split('T')[0]} {liveTime} WIB</span>
-                  </div>
-                  <div className="text-[10px] font-mono text-slate-300 drop-shadow mt-0.5">
-                    NVR IP: <strong className="text-white">{feed.truckIp}</strong> ({feed.truckName})
-                  </div>
-                </div>
-
-                {feed.isTrafficCam && feed.traffic && (
-                  <div className="bg-black/70 backdrop-blur-xs border border-emerald-500/50 px-2.5 py-1 rounded text-right">
-                    <div className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
-                      AI TRAFFIC COUNT
-                    </div>
-                    <div className="text-xs font-mono font-extrabold text-white">
-                      🏍️ {feed.traffic.motorcycles} | 🚗 {feed.traffic.cars} | 🚶 {feed.traffic.pedestrians}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* HOVER ACTION OVERLAY BUTTONS */}
-              <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20">
-                <button
-                  onClick={() => handleTakeSnapshot(feed.truckId, feed.channelId)}
-                  className="p-3 bg-white hover:bg-blue-600 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
-                  title="Ambil Snapshot Kamera"
-                >
-                  <Camera className="w-4 h-4" />
-                  <span>Snapshot</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    const key = `${feed.truckId}-${feed.channelId}`;
-                    setActivePtzCamKey(prev => prev === key ? null : key);
-                  }}
-                  className={`p-3 rounded-xl border shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold ${
-                    activePtzCamKey === `${feed.truckId}-${feed.channelId}`
-                      ? 'bg-indigo-600 text-white border-indigo-500'
-                      : 'bg-white hover:bg-indigo-600 text-slate-800 hover:text-white border-slate-200'
-                  }`}
-                  title="Live PTZ Control"
-                >
-                  <Sliders className="w-4 h-4" />
-                  <span>{activePtzCamKey === `${feed.truckId}-${feed.channelId}` ? 'Tutup PTZ' : 'Live PTZ'}</span>
-                </button>
-
-                <button
-                  onClick={() => setFullscreenCam(feed)}
-                  className="p-3 bg-white hover:bg-slate-800 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
-                  title="Fullscreen Preview"
-                >
-                  <Maximize2 className="w-4 h-4" />
-                  <span>Fullscreen</span>
-                </button>
-              </div>
-            </div>
-
-            {/* BOTTOM FOOTER INFO & RTSP QUICK COPY (LIGHT THEME) */}
-            <div className="p-3.5 bg-white flex items-center justify-between border-t border-slate-100 text-xs">
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${feed.online ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
-                <span className="font-extrabold text-slate-800">{feed.truckName}</span>
-                <span className="text-[11px] text-slate-500 font-medium">· {feed.res}</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => copyToClipboard(feed.rtspUrl)}
-                  className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200 font-mono text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Salin RTSP Stream URL"
-                >
-                  {copiedUrl === feed.rtspUrl ? (
-                    <>
-                      <Check className="w-3 h-3 text-emerald-600" />
-                      <span className="text-emerald-600 font-bold">Copied!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3 h-3 text-slate-400" />
-                      <span>Copy RTSP</span>
-                    </>
                   )}
-                </button>
+
+                  {/* TOP HUD BAR */}
+                  <div className="absolute top-0 inset-x-0 bg-linear-to-b from-black/80 via-black/40 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-white font-mono font-black text-[10px] tracking-wider flex items-center gap-1 shadow-xs ${
+                        feed.online ? 'bg-emerald-600 animate-pulse' : 'bg-rose-600'
+                      }`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span> {feed.status}
+                      </span>
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-slate-200 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold tracking-wide">
+                        {feed.channelId}: {feed.channelName}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-emerald-400 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                        {feed.fps} FPS
+                      </span>
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-blue-300 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                        {feed.bitrate}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* BOTTOM HUD BAR */}
+                  <div className="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/85 via-black/50 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
+                    <div>
+                      <div className="text-white font-mono font-bold text-xs flex items-center gap-2 drop-shadow-md">
+                        <Clock className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{new Date().toISOString().split('T')[0]} {liveTime} WIB</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-300 drop-shadow mt-0.5">
+                        NVR IP: <strong className="text-white">{feed.truckIp}</strong> ({feed.truckName})
+                      </div>
+                    </div>
+
+                    {feed.isTrafficCam && feed.traffic && (
+                      <div className="bg-black/70 backdrop-blur-xs border border-emerald-500/50 px-2.5 py-1 rounded text-right">
+                        <div className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                          AI TRAFFIC COUNT
+                        </div>
+                        <div className="text-xs font-mono font-extrabold text-white">
+                          🏍️ {feed.traffic.motorcycles} | 🚗 {feed.traffic.cars} | 🚶 {feed.traffic.pedestrians}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* HOVER ACTION OVERLAY BUTTONS */}
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20">
+                    <button
+                      onClick={() => handleTakeSnapshot(feed.truckId, feed.channelId)}
+                      className="p-3 bg-white hover:bg-blue-600 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
+                      title="Ambil Snapshot Kamera"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Snapshot</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const key = `${feed.truckId}-${feed.channelId}`;
+                        setActivePtzCamKey(prev => prev === key ? null : key);
+                      }}
+                      className={`p-3 rounded-xl border shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold ${
+                        activePtzCamKey === `${feed.truckId}-${feed.channelId}`
+                          ? 'bg-indigo-600 text-white border-indigo-500'
+                          : 'bg-white hover:bg-indigo-600 text-slate-800 hover:text-white border-slate-200'
+                      }`}
+                      title="Live PTZ Control"
+                    >
+                      <Sliders className="w-4 h-4" />
+                      <span>{activePtzCamKey === `${feed.truckId}-${feed.channelId}` ? 'Tutup PTZ' : 'Live PTZ'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setFullscreenCam(feed)}
+                      className="p-3 bg-white hover:bg-slate-800 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
+                      title="Fullscreen Preview"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      <span>Fullscreen</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* BOTTOM FOOTER INFO & RTSP QUICK COPY */}
+                <div className="p-3.5 bg-white flex items-center justify-between border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${feed.online ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                    <span className="font-extrabold text-slate-800">{feed.truckName}</span>
+                    <span className="text-[11px] text-slate-500 font-medium">· {feed.res}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => copyToClipboard(feed.rtspUrl)}
+                      className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200 font-mono text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Salin RTSP Stream URL"
+                    >
+                      {copiedUrl === feed.rtspUrl ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600 font-bold">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-slate-400" />
+                          <span>Copy RTSP</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        ))}
+            ))
+          )
+        )}
+
+        {/* TRUK 02 CAMERAS (CH1 & CH2) */}
+        {(activeFilter === 'all' || activeFilter === 'truck_2') && (
+          isTruck2Loading ? (
+            <>
+              <CctvCameraCardSkeleton />
+              <CctvCameraCardSkeleton />
+            </>
+          ) : (
+            filteredFeeds.filter(f => f.truckId === 'truck_2').map((feed, idx) => (
+              <div
+                key={`${feed.truckId}-${feed.channelId}-${idx}`}
+                className="bg-white border border-slate-200/90 rounded-2xl overflow-hidden shadow-sm flex flex-col group relative"
+              >
+                {/* VIDEO PLAYER CONTAINER WITH HUD OVERLAY */}
+                <div className="relative aspect-video bg-slate-950 overflow-hidden select-none flex items-center justify-center">
+                  <WebRtcPlayer
+                    streamKey={`${feed.truckId}_${feed.channelId.toLowerCase()}`}
+                    isOnline={true}
+                    channelName={`${feed.truckName} - ${feed.channelName}`}
+                    fallbackImage={feed.liveImage}
+                    zoom={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1}
+                    panX={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panX || 0}
+                    panY={feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.panY || 0}
+                  />
+
+                  {/* LIVE ON-SCREEN FLOATING PTZ OVERLAY */}
+                  {activePtzCamKey === `${feed.truckId}-${feed.channelId}` && (
+                    <div className="absolute top-12 right-3 z-30 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 p-3 rounded-2xl shadow-2xl flex flex-col items-center gap-2 select-none animate-in fade-in zoom-in-95 duration-200">
+                      <div className="flex items-center justify-between w-full pb-1 border-b border-slate-700/60 text-[10px] font-mono font-bold text-slate-300">
+                        <span className="flex items-center gap-1"><Sliders className="w-3 h-3 text-indigo-400" /> LIVE PTZ & ZOOM</span>
+                        <button
+                          onClick={() => setActivePtzCamKey(null)}
+                          className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Directional Pad */}
+                      <div className="flex flex-col items-center gap-1.5 py-1">
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'UP')}
+                          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                          title="Pan Atas"
+                        >
+                          <ArrowUp className="w-4 h-4" />
+                        </button>
+
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'LEFT')}
+                            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                            title="Pan Kiri"
+                          >
+                            <ArrowLeft className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'STOP')}
+                            className="w-7 h-7 rounded-full bg-rose-500/20 hover:bg-rose-500/40 border border-rose-500/40 text-rose-300 text-[8px] font-mono font-bold flex items-center justify-center cursor-pointer"
+                            title="Reset Viewport"
+                          >
+                            1x
+                          </button>
+
+                          <button
+                            onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'RIGHT')}
+                            className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                            title="Pan Kanan"
+                          >
+                            <ArrowRight className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'DOWN')}
+                          className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-indigo-600 active:bg-indigo-700 text-white flex items-center justify-center border border-slate-700 shadow-xs transition-all cursor-pointer"
+                          title="Pan Bawah"
+                        >
+                          <ArrowDown className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Zoom Controls */}
+                      <div className="flex items-center gap-1.5 pt-1 border-t border-slate-700/60 w-full">
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_IN')}
+                          className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-emerald-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+                          title="Zoom In"
+                        >
+                          <ZoomIn className="w-3.5 h-3.5" /> + In
+                        </button>
+                        <button
+                          onClick={() => handleFeedPtz(feed.truckId, feed.channelId, 'ZOOM_OUT')}
+                          className="flex-1 py-1.5 px-2 bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white rounded-md text-[10px] font-bold flex items-center justify-center gap-1 border border-slate-700 cursor-pointer"
+                          title="Zoom Out"
+                        >
+                          <ZoomOut className="w-3.5 h-3.5" /> - Out
+                        </button>
+                      </div>
+
+                      {/* Zoom Level Indicator */}
+                      <div className="text-[10px] font-mono text-emerald-400 bg-black/50 border border-slate-700 px-2 py-0.5 rounded text-center w-full">
+                        Zoom: {(feedZoomMap[`${feed.truckId}-${feed.channelId}`]?.zoom || 1).toFixed(1)}x
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TOP HUD BAR */}
+                  <div className="absolute top-0 inset-x-0 bg-linear-to-b from-black/80 via-black/40 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-white font-mono font-black text-[10px] tracking-wider flex items-center gap-1 shadow-xs ${
+                        feed.online ? 'bg-emerald-600 animate-pulse' : 'bg-rose-600'
+                      }`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-white"></span> {feed.status}
+                      </span>
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-slate-200 px-2.5 py-0.5 rounded text-[11px] font-mono font-bold tracking-wide">
+                        {feed.channelId}: {feed.channelName}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-emerald-400 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                        {feed.fps} FPS
+                      </span>
+                      <span className="bg-slate-900/80 border border-slate-700/80 text-blue-300 font-mono text-[10px] px-2 py-0.5 rounded font-bold">
+                        {feed.bitrate}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* BOTTOM HUD BAR */}
+                  <div className="absolute bottom-0 inset-x-0 bg-linear-to-t from-black/85 via-black/50 to-transparent p-3.5 flex items-center justify-between pointer-events-none z-10">
+                    <div>
+                      <div className="text-white font-mono font-bold text-xs flex items-center gap-2 drop-shadow-md">
+                        <Clock className="w-3.5 h-3.5 text-blue-400" />
+                        <span>{new Date().toISOString().split('T')[0]} {liveTime} WIB</span>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-300 drop-shadow mt-0.5">
+                        NVR IP: <strong className="text-white">{feed.truckIp}</strong> ({feed.truckName})
+                      </div>
+                    </div>
+
+                    {feed.isTrafficCam && feed.traffic && (
+                      <div className="bg-black/70 backdrop-blur-xs border border-emerald-500/50 px-2.5 py-1 rounded text-right">
+                        <div className="text-[9px] font-mono text-emerald-400 font-bold uppercase tracking-wider">
+                          AI TRAFFIC COUNT
+                        </div>
+                        <div className="text-xs font-mono font-extrabold text-white">
+                          🏍️ {feed.traffic.motorcycles} | 🚗 {feed.traffic.cars} | 🚶 {feed.traffic.pedestrians}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* HOVER ACTION OVERLAY BUTTONS */}
+                  <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 z-20">
+                    <button
+                      onClick={() => handleTakeSnapshot(feed.truckId, feed.channelId)}
+                      className="p-3 bg-white hover:bg-blue-600 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
+                      title="Ambil Snapshot Kamera"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <span>Snapshot</span>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        const key = `${feed.truckId}-${feed.channelId}`;
+                        setActivePtzCamKey(prev => prev === key ? null : key);
+                      }}
+                      className={`p-3 rounded-xl border shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold ${
+                        activePtzCamKey === `${feed.truckId}-${feed.channelId}`
+                          ? 'bg-indigo-600 text-white border-indigo-500'
+                          : 'bg-white hover:bg-indigo-600 text-slate-800 hover:text-white border-slate-200'
+                      }`}
+                      title="Live PTZ Control"
+                    >
+                      <Sliders className="w-4 h-4" />
+                      <span>{activePtzCamKey === `${feed.truckId}-${feed.channelId}` ? 'Tutup PTZ' : 'Live PTZ'}</span>
+                    </button>
+
+                    <button
+                      onClick={() => setFullscreenCam(feed)}
+                      className="p-3 bg-white hover:bg-slate-800 text-slate-800 hover:text-white rounded-xl border border-slate-200 shadow-xl transition-all cursor-pointer flex items-center gap-2 text-xs font-bold"
+                      title="Fullscreen Preview"
+                    >
+                      <Maximize2 className="w-4 h-4" />
+                      <span>Fullscreen</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* BOTTOM FOOTER INFO & RTSP QUICK COPY */}
+                <div className="p-3.5 bg-white flex items-center justify-between border-t border-slate-100 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${feed.online ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                    <span className="font-extrabold text-slate-800">{feed.truckName}</span>
+                    <span className="text-[11px] text-slate-500 font-medium">· {feed.res}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => copyToClipboard(feed.rtspUrl)}
+                      className="px-2.5 py-1.5 bg-slate-50 hover:bg-slate-100 text-slate-600 hover:text-slate-900 rounded-lg border border-slate-200 font-mono text-[10px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title="Salin RTSP Stream URL"
+                    >
+                      {copiedUrl === feed.rtspUrl ? (
+                        <>
+                          <Check className="w-3 h-3 text-emerald-600" />
+                          <span className="text-emerald-600 font-bold">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 text-slate-400" />
+                          <span>Copy RTSP</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))
+          )
+        )}
       </div>
 
       {/* ========================================================

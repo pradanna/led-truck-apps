@@ -20,7 +20,7 @@ export default defineConfig({
             'react/jsx-dev-runtime',
             'react/jsx-runtime',
             '@inertiajs/react',
-            'axios',
+            'axios', 
             'lucide-react',
             'leaflet',
             'react-leaflet',

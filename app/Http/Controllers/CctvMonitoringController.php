@@ -60,6 +60,9 @@ class CctvMonitoringController extends Controller
         }
 
         $truckStatus = $this->holowits->queryTruckNvrStatus($truckConfig);
+        if (!isset($truckStatus['config'])) {
+            $truckStatus['config'] = $truckConfig;
+        }
 
         return response()->json([
             'success' => true,

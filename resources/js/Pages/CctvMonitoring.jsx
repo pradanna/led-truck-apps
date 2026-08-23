@@ -329,92 +329,90 @@ export default function CctvMonitoring({ monitoringData = {} }) {
     const feeds = [];
     
     // Truck 1 Cams
-    if (truck1?.config) {
-      const t1Online = truck1.online;
-      const ch1 = truck1?.channels?.CH1 || {};
-      const ch2 = truck1?.channels?.CH2 || {};
+    const t1Config = truck1?.config || { name: 'Truk LED 01', nvr_ip: '103.144.175.22' };
+    const t1Online = truck1?.online ?? false;
+    const ch1_t1 = truck1?.channels?.CH1 || {};
+    const ch2_t1 = truck1?.channels?.CH2 || {};
 
-      feeds.push({
-        truckId: 'truck_1',
-        truckName: truck1.config.name || 'Truk LED 01',
-        truckIp: truck1.config.nvr_ip || '103.144.175.22',
-        channelId: 'CH1',
-        channelName: ch1.name || 'Kamera Belakang (Layar LED)',
-        type: 'LED_SCREEN',
-        online: t1Online,
-        status: ch1.status || (t1Online ? 'ONLINE' : 'DISCONNECTED'),
-        statusReason: ch1.status_reason || truck1.status_message,
-        rtspUrl: ch1.rtsp_url,
-        liveImage: ch1.live_image || null,
-        fps: ch1.fps || 0,
-        bitrate: ch1.bitrate || '0 kbps',
-        res: ch1.resolution || '1080P FHD',
-        isTrafficCam: false,
-      });
+    feeds.push({
+      truckId: 'truck_1',
+      truckName: t1Config.name || 'Truk LED 01',
+      truckIp: t1Config.nvr_ip || '103.144.175.22',
+      channelId: 'CH1',
+      channelName: ch1_t1.name || 'Kamera Belakang (Layar LED)',
+      type: 'LED_SCREEN',
+      online: t1Online,
+      status: ch1_t1.status || (t1Online ? 'ONLINE' : 'DISCONNECTED'),
+      statusReason: ch1_t1.status_reason || truck1?.status_message || 'Kamera Belum Terhubung',
+      rtspUrl: ch1_t1.rtsp_url || `rtsp://${t1Config.nvr_ip}:554/live/ch1`,
+      liveImage: ch1_t1.live_image || null,
+      fps: ch1_t1.fps || 0,
+      bitrate: ch1_t1.bitrate || '0 kbps',
+      res: ch1_t1.resolution || '1080P FHD',
+      isTrafficCam: false,
+    });
 
-      feeds.push({
-        truckId: 'truck_1',
-        truckName: truck1.config.name || 'Truk LED 01',
-        truckIp: truck1.config.nvr_ip || '103.144.175.22',
-        channelId: 'CH2',
-        channelName: ch2.name || 'Kamera Depan (Traffic & AI)',
-        type: 'TRAFFIC_AI',
-        online: t1Online,
-        status: ch2.status || (t1Online ? 'ONLINE' : 'DISCONNECTED'),
-        statusReason: ch2.status_reason || truck1.status_message,
-        rtspUrl: ch2.rtsp_url,
-        liveImage: ch2.live_image || null,
-        fps: ch2.fps || 0,
-        bitrate: ch2.bitrate || '0 kbps',
-        res: ch2.resolution || '1080P FHD',
-        isTrafficCam: true,
-        traffic: truck1.traffic,
-      });
-    }
+    feeds.push({
+      truckId: 'truck_1',
+      truckName: t1Config.name || 'Truk LED 01',
+      truckIp: t1Config.nvr_ip || '103.144.175.22',
+      channelId: 'CH2',
+      channelName: ch2_t1.name || 'Kamera Depan (Traffic & AI)',
+      type: 'TRAFFIC_AI',
+      online: t1Online,
+      status: ch2_t1.status || (t1Online ? 'ONLINE' : 'DISCONNECTED'),
+      statusReason: ch2_t1.status_reason || truck1?.status_message || 'Kamera Belum Terhubung',
+      rtspUrl: ch2_t1.rtsp_url || `rtsp://${t1Config.nvr_ip}:554/live/ch2`,
+      liveImage: ch2_t1.live_image || null,
+      fps: ch2_t1.fps || 0,
+      bitrate: ch2_t1.bitrate || '0 kbps',
+      res: ch2_t1.resolution || '1080P FHD',
+      isTrafficCam: true,
+      traffic: truck1?.traffic,
+    });
 
     // Truck 2 Cams
-    if (truck2?.config) {
-      const t2Online = truck2.online;
-      const ch1 = truck2?.channels?.CH1 || {};
-      const ch2 = truck2?.channels?.CH2 || {};
+    const t2Config = truck2?.config || { name: 'Truk LED 02', nvr_ip: '103.144.175.28' };
+    const t2Online = truck2?.online ?? false;
+    const ch1_t2 = truck2?.channels?.CH1 || {};
+    const ch2_t2 = truck2?.channels?.CH2 || {};
 
-      feeds.push({
-        truckId: 'truck_2',
-        truckName: truck2.config.name || 'Truk LED 02',
-        truckIp: truck2.config.nvr_ip || '103.144.175.28',
-        channelId: 'CH1',
-        channelName: ch1.name || 'Kamera Belakang (Layar LED)',
-        type: 'LED_SCREEN',
-        online: t2Online,
-        status: ch1.status || (t2Online ? 'ONLINE' : 'DISCONNECTED'),
-        statusReason: ch1.status_reason || truck2.status_message,
-        rtspUrl: ch1.rtsp_url,
-        liveImage: ch1.live_image || null,
-        fps: ch1.fps || 0,
-        bitrate: ch1.bitrate || '0 kbps',
-        res: ch1.resolution || '1080P FHD',
-        isTrafficCam: false,
-      });
+    feeds.push({
+      truckId: 'truck_2',
+      truckName: t2Config.name || 'Truk LED 02',
+      truckIp: t2Config.nvr_ip || '103.144.175.28',
+      channelId: 'CH1',
+      channelName: ch1_t2.name || 'Kamera Belakang (Layar LED)',
+      type: 'LED_SCREEN',
+      online: t2Online,
+      status: ch1_t2.status || (t2Online ? 'ONLINE' : 'DISCONNECTED'),
+      statusReason: ch1_t2.status_reason || truck2?.status_message || 'Kamera Belum Terhubung',
+      rtspUrl: ch1_t2.rtsp_url || `rtsp://${t2Config.nvr_ip}:70/live/ch1`,
+      liveImage: ch1_t2.live_image || null,
+      fps: ch1_t2.fps || 0,
+      bitrate: ch1_t2.bitrate || '0 kbps',
+      res: ch1_t2.resolution || '1080P FHD',
+      isTrafficCam: false,
+    });
 
-      feeds.push({
-        truckId: 'truck_2',
-        truckName: truck2.config.name || 'Truk LED 02',
-        truckIp: truck2.config.nvr_ip || '103.144.175.28',
-        channelId: 'CH2',
-        channelName: ch2.name || 'Kamera Depan (Traffic & AI)',
-        type: 'TRAFFIC_AI',
-        online: t2Online,
-        status: ch2.status || (t2Online ? 'ONLINE' : 'DISCONNECTED'),
-        statusReason: ch2.status_reason || truck2.status_message,
-        rtspUrl: ch2.rtsp_url,
-        liveImage: ch2.live_image || null,
-        fps: ch2.fps || 0,
-        bitrate: ch2.bitrate || '0 kbps',
-        res: ch2.resolution || '1080P FHD',
-        isTrafficCam: true,
-        traffic: truck2.traffic,
-      });
-    }
+    feeds.push({
+      truckId: 'truck_2',
+      truckName: t2Config.name || 'Truk LED 02',
+      truckIp: t2Config.nvr_ip || '103.144.175.28',
+      channelId: 'CH2',
+      channelName: ch2_t2.name || 'Kamera Depan (Traffic & AI)',
+      type: 'TRAFFIC_AI',
+      online: t2Online,
+      status: ch2_t2.status || (t2Online ? 'ONLINE' : 'DISCONNECTED'),
+      statusReason: ch2_t2.status_reason || truck2?.status_message || 'Kamera Belum Terhubung',
+      rtspUrl: ch2_t2.rtsp_url || `rtsp://${t2Config.nvr_ip}:70/live/ch2`,
+      liveImage: ch2_t2.live_image || null,
+      fps: ch2_t2.fps || 0,
+      bitrate: ch2_t2.bitrate || '0 kbps',
+      res: ch2_t2.resolution || '1080P FHD',
+      isTrafficCam: true,
+      traffic: truck2?.traffic,
+    });
 
     return feeds;
   };

@@ -30,6 +30,7 @@ Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->midd
 Route::middleware('auth')->group(function () {
     // 1. Dashboard Overview
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/api/dashboard/live-data', [DashboardController::class, 'getLiveData']);
 
     // 2. GPS Tracking (Viewable by All)
     Route::get('/gps-tracking', [GpsTrackingController::class, 'index'])->name('gps.tracking');
@@ -46,6 +47,7 @@ Route::middleware('auth')->group(function () {
 
     // 4. Playlog & Novastar (Viewable by All)
     Route::get('/playlog', [PlaylogController::class, 'index'])->name('playlog');
+    Route::get('/api/vnnox/live-data', [PlaylogController::class, 'getLiveData']);
     Route::get('/api/vnnox/export-logs', [PlaylogController::class, 'exportCsv']);
 
     // 5. Dokumentasi Kampanye (Viewable by All, filtered by Client)

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
 import {
   Key,
@@ -22,12 +22,48 @@ import NovastarControllerCard from '../Components/Playlog/NovastarControllerCard
 import PlaylogRecordsTable from '../Components/Playlog/PlaylogRecordsTable';
 import axios from 'axios';
 
-export default function PlaylogPlaylist({ truckInfo, playlistData, controllerStatus, playlogData, apiConfigured }) {
+export default function PlaylogPlaylist({
+    selectedTruck = 'truck_1',
+    truckInfo,
+    playlistData,
+    controllerStatus,
+    playlogData,
+    apiConfigured
+}) {
     const { auth } = usePage().props;
     const isAdmin = auth?.user?.isAdmin ?? (auth?.user?.role === 'admin');
 
     const [currentPlaylistData, setCurrentPlaylistData] = useState(playlistData || { success: false, items: [] });
+    const [currentControllerStatus, setCurrentControllerStatus] = useState(controllerStatus || { onlineStatus: false });
+    const [currentPlaylogData, setCurrentPlaylogData] = useState(playlogData || { records: [] });
     const [toastMessage, setToastMessage] = useState('');
+    const [isLoadingLive, setIsLoadingLive] = useState(false);
+
+    // Background lazy fetch for live VNNOX data with AbortController
+    useEffect(() => {
+        const controller = new AbortController();
+        setIsLoadingLive(true);
+
+        fetch(`/api/vnnox/live-data?truck_id=${selectedTruck}`, { signal: controller.signal })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.playlistData) setCurrentPlaylistData(data.playlistData);
+                    if (data.controllerStatus) setCurrentControllerStatus(data.controllerStatus);
+                    if (data.playlogData) setCurrentPlaylogData(data.playlogData);
+                }
+            })
+            .catch(err => {
+                if (err.name !== 'AbortError') {
+                    console.error("Playlog live data lazyload:", err);
+                }
+            })
+            .finally(() => setIsLoadingLive(false));
+
+        return () => {
+            controller.abort(); // Interupsi dan batalkan request saat pindah menu
+        };
+    }, [selectedTruck]);
 
     // Modal Form State Tambah Materi
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -196,13 +232,13 @@ export default function PlaylogPlaylist({ truckInfo, playlistData, controllerSta
                     />
                 </div>
                 <div className="lg:col-span-1">
-                    <NovastarControllerCard status={controllerStatus} />
+                    <NovastarControllerCard status={currentControllerStatus} />
                 </div>
             </div>
 
             {/* Bottom Section: Playlog Activity Records Table */}
             <PlaylogRecordsTable
-                data={playlogData}
+                data={currentPlaylogData}
                 onExportCsv={handleExportCsv}
             />
 

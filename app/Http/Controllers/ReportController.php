@@ -221,8 +221,8 @@ class ReportController extends Controller
                     $maxRecordedSpeed = $metrics['max_speed'];
                 }
 
-                // Query detailed GPS logs only when tab is 'gps' or 'all'
-                if ($tab === 'gps' || $tab === 'overview' || $request->routeIs('*.export*')) {
+                // Query detailed GPS logs only when tab is strictly 'gps' or on CSV/PDF export
+                if ($tab === 'gps' || $request->routeIs('*.export*')) {
                     $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
                     if (!empty($rawHistory)) {
                         foreach ($rawHistory as $pt) {

@@ -104,6 +104,8 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
                             <Link
                                 key={item.id}
                                 href={item.href}
+                                preserveState={false}
+                                preserveScroll={false}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all ${
                                     isActive
                                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30 font-bold'

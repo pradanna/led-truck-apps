@@ -191,7 +191,7 @@ class FoxloggerService
             }
 
             try {
-                $response = Http::timeout(3)
+                $response = Http::timeout(1)
                     ->withToken($session['access_token'])
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
@@ -199,7 +199,7 @@ class FoxloggerService
                 if ($response->status() === 401) {
                     $session = $this->refreshTokenForAccount($key);
                     if ($session) {
-                        $response = Http::timeout(3)
+                        $response = Http::timeout(1)
                             ->withToken($session['access_token'])
                             ->withoutVerifying()
                             ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
@@ -214,12 +214,12 @@ class FoxloggerService
                     }
                 }
             } catch (\Throwable $e) {
-                Log::error("Foxlogger getDeviceList Exception for {$key}", ['error' => $e->getMessage()]);
+                // Non-blocking fail-fast
             }
         }
 
         if (!empty($combinedDevices)) {
-            Cache::put('foxlogger_devices_list_combined', $combinedDevices, now()->addMinutes(2));
+            Cache::put('foxlogger_devices_list_combined', $combinedDevices, now()->addMinutes(5));
             return $combinedDevices;
         }
 
@@ -227,7 +227,7 @@ class FoxloggerService
     }
 
     /**
-     * Fetch report position across all accounts with 1-minute Cache.
+     * Fetch report position across all accounts with 3-minute Cache.
      */
     public function getReportPosition(bool $forceRefresh = false): array
     {
@@ -245,7 +245,7 @@ class FoxloggerService
             }
 
             try {
-                $response = Http::timeout(3)
+                $response = Http::timeout(1)
                     ->withToken($session['access_token'])
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
@@ -253,7 +253,7 @@ class FoxloggerService
                 if ($response->status() === 401) {
                     $session = $this->refreshTokenForAccount($key);
                     if ($session) {
-                        $response = Http::timeout(3)
+                        $response = Http::timeout(1)
                             ->withToken($session['access_token'])
                             ->withoutVerifying()
                             ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
@@ -271,18 +271,18 @@ class FoxloggerService
                             try {
                                 \App\Models\GpsTelemetryLog::bulkSyncFromFoxlogger($pos['imei'], [$pos], $pos['unit'] ?? null);
                             } catch (\Throwable $e) {
-                                // Silent fail to never block live UI
+                                // Silent fail
                             }
                         }
                     }
                 }
             } catch (\Throwable $e) {
-                Log::error("Foxlogger getReportPosition Exception for {$key}", ['error' => $e->getMessage()]);
+                // Non-blocking fail-fast
             }
         }
 
         if (!empty($combinedPositions)) {
-            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinute());
+            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinutes(3));
             return $combinedPositions;
         }
 

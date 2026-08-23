@@ -27,13 +27,49 @@ import {
 import AppLayout from '../Layouts/AppLayout';
 
 export default function Dashboard({
-  gpsDevices = [],
-  gpsPositions = [],
-  novastarData = {},
-  cctvData = {}
+  gpsDevices: initialGpsDevices = [],
+  gpsPositions: initialGpsPositions = [],
+  novastarData: initialNovastarData = {},
+  cctvData: initialCctvData = {}
 }) {
   // 1. Truck Selector State: 'truck_1' or 'truck_2'
   const [selectedTruckId, setSelectedTruckId] = useState('truck_1');
+
+  // Async Live States (Lazy loaded in background)
+  const [gpsDevices, setGpsDevices] = useState(initialGpsDevices);
+  const [gpsPositions, setGpsPositions] = useState(initialGpsPositions);
+  const [novastarData, setNovastarData] = useState(initialNovastarData);
+  const [cctvData, setCctvData] = useState(initialCctvData);
+  const [isLoadingLive, setIsLoadingLive] = useState(false);
+
+  // Background lazy-fetch live telemetry with AbortController to cancel when switching menus
+  React.useEffect(() => {
+    const controller = new AbortController();
+    setIsLoadingLive(true);
+
+    fetch('/api/dashboard/live-data', { signal: controller.signal })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          if (data.gpsDevices) setGpsDevices(data.gpsDevices);
+          if (data.gpsPositions) setGpsPositions(data.gpsPositions);
+          if (data.novastarData) setNovastarData(data.novastarData);
+          if (data.cctvData) setCctvData(data.cctvData);
+        }
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') {
+          console.error("Dashboard live data lazyload:", err);
+        }
+      })
+      .finally(() => {
+        setIsLoadingLive(false);
+      });
+
+    return () => {
+      controller.abort(); // Interupsi dan batalkan request saat pindah menu
+    };
+  }, []);
 
   // Map GPS data
   const gpsTruck1 = gpsPositions.find(p => p.unit?.includes('9731') || p.imei === '0356153590691330') || gpsPositions[0] || {};

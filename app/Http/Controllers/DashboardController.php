@@ -27,23 +27,44 @@ class DashboardController extends Controller
 
     /**
      * Display the Executive Overview Dashboard
-     * Combines Foxlogger GPS, Novastar/VNNOX Videotron, and Holowits Traffic & CCTV
+     * Instant 0ms render with cached local state
      */
     public function index(Request $request): Response
     {
-        // 1. Fast Foxlogger GPS data from Cache / DB (0 blocking)
+        // Return instantly using memory/database cache
+        $devices = \Illuminate\Support\Facades\Cache::get('foxlogger_devices_list_combined', []);
+        $positions = \Illuminate\Support\Facades\Cache::get('foxlogger_positions_report_combined', []);
+        $playlistResult = \Illuminate\Support\Facades\Cache::get('vnnox_playlist_data_truck_1', ['items' => []]);
+        $controllerStatus = \Illuminate\Support\Facades\Cache::get('vnnox_controller_status_truck_1', ['onlineStatus' => false]);
+        $playlogResult = \Illuminate\Support\Facades\Cache::get('vnnox_playlog_records_truck_1', ['records' => []]);
+        $cctvData = \Illuminate\Support\Facades\Cache::get('holowits_truck_statuses', []);
+
+        return Inertia::render('Dashboard', [
+            'gpsDevices' => $devices,
+            'gpsPositions' => $positions,
+            'novastarData' => [
+                'playlist' => $playlistResult,
+                'controller' => $controllerStatus,
+                'playlogs' => $playlogResult,
+            ],
+            'cctvData' => $cctvData,
+        ]);
+    }
+
+    /**
+     * API endpoint to asynchronously fetch live telemetry for all components
+     */
+    public function getLiveData(Request $request)
+    {
         $devices = $this->foxlogger->getDeviceList();
         $positions = $this->foxlogger->getReportPosition();
-
-        // 2. Fast Novastar / VNNOX Videotron data (Instant Cache)
         $playlistResult = $this->vnnox->getPlaylistData();
         $controllerStatus = $this->vnnox->getNovastarControllerStatus();
         $playlogResult = $this->vnnox->getPlaylogRecordsData();
-
-        // 3. Fast CCTV & Traffic data (Instant Cache)
         $cctvData = $this->holowits->getLiveMonitoringData();
 
-        return Inertia::render('Dashboard', [
+        return response()->json([
+            'success' => true,
             'gpsDevices' => $devices,
             'gpsPositions' => $positions,
             'novastarData' => [

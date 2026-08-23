@@ -18,6 +18,7 @@ class PlaylogController extends Controller
 
     /**
      * Display the Playlog & Novastar Videotron Controller Page
+     * Instant render with local cache
      */
     public function index(Request $request): Response
     {
@@ -26,9 +27,20 @@ class PlaylogController extends Controller
             $selectedTruck = 'truck_1';
         }
 
-        $playlistResult = $this->playlogService->getPlaylistData(false, $selectedTruck);
-        $controllerStatus = $this->playlogService->getNovastarControllerStatus(false, $selectedTruck);
-        $playlogResult = $this->playlogService->getPlaylogRecordsData(false, $selectedTruck);
+        $playlistResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlist_data_{$selectedTruck}", [
+            'success' => true,
+            'items' => []
+        ]);
+        $controllerStatus = \Illuminate\Support\Facades\Cache::get("vnnox_controller_status_{$selectedTruck}", [
+            'success' => true,
+            'onlineStatus' => false,
+            'processorChip' => 'NovaStar TU20Pro',
+            'refreshRate' => '3,840 Hz',
+        ]);
+        $playlogResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlog_records_{$selectedTruck}", [
+            'success' => true,
+            'records' => []
+        ]);
 
         $truckInfo = $selectedTruck === 'truck_2' ? [
             'id' => 'truck_2',
@@ -53,6 +65,28 @@ class PlaylogController extends Controller
             'controllerStatus' => $controllerStatus,
             'playlogData' => $playlogResult,
             'apiConfigured' => $this->playlogService->hasConfiguredCredentials(),
+        ]);
+    }
+
+    /**
+     * API endpoint to asynchronously fetch live VNNOX data
+     */
+    public function getLiveData(Request $request)
+    {
+        $selectedTruck = $request->query('truck_id', 'truck_1');
+        if (!in_array($selectedTruck, ['truck_1', 'truck_2'])) {
+            $selectedTruck = 'truck_1';
+        }
+
+        $playlistResult = $this->playlogService->getPlaylistData(true, $selectedTruck);
+        $controllerStatus = $this->playlogService->getNovastarControllerStatus(true, $selectedTruck);
+        $playlogResult = $this->playlogService->getPlaylogRecordsData(true, $selectedTruck);
+
+        return response()->json([
+            'success' => true,
+            'playlistData' => $playlistResult,
+            'controllerStatus' => $controllerStatus,
+            'playlogData' => $playlogResult,
         ]);
     }
 

@@ -123,11 +123,13 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     setSelectedCheckpoint(null);
   }, [selectedTruckId, selectedDate]);
 
-  // Fetch History Points based on selected Date & Truck IMEI
+  // Fetch History Points based on selected Date & Truck IMEI with AbortController
   useEffect(() => {
     if (activeTruck && activeTruck.imei) {
+      const controller = new AbortController();
       setIsLoadingHistory(true);
-      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}`)
+
+      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}`, { signal: controller.signal })
         .then(res => res.json())
         .then(data => {
           if (data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -162,12 +164,18 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
           }
         })
         .catch(err => {
-          console.error("Error fetching GPS history:", err);
-          setRawHistoryPoints([]);
+          if (err.name !== 'AbortError') {
+            console.error("Error fetching GPS history:", err);
+            setRawHistoryPoints([]);
+          }
         })
         .finally(() => {
           setIsLoadingHistory(false);
         });
+
+      return () => {
+        controller.abort(); // Interupsi dan batalkan request saat ganti truk/tanggal atau pindah menu
+      };
     }
   }, [activeTruck?.imei, selectedDate]);
 

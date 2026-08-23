@@ -18,11 +18,14 @@ class CctvMonitoringController extends Controller
 
     /**
      * Display the Live CCTV Monitoring & Traffic Analytics Dashboard
-     * Ultra-lightweight with instant cached status response.
+     * Ultra-lightweight with instant cached status response (0ms render).
      */
     public function index(Request $request): Response
     {
-        $monitoringData = $this->holowits->getLiveMonitoringData();
+        $monitoringData = \Illuminate\Support\Facades\Cache::get('holowits_truck_statuses', null);
+        if (!$monitoringData) {
+            $monitoringData = $this->holowits->getLiveMonitoringData();
+        }
 
         return Inertia::render('CctvMonitoring', [
             'monitoringData' => $monitoringData,

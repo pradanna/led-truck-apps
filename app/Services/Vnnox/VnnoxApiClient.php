@@ -47,7 +47,7 @@ class VnnoxApiClient
 
          try {
              $client = Http::withHeaders($headers)
-                 ->timeout(10);
+                 ->timeout(2);
 
             if (strtoupper($method) === 'POST') {
                 $response = $client->asJson()->post($url, $data);

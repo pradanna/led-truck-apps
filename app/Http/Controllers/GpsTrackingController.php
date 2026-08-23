@@ -19,9 +19,16 @@ class GpsTrackingController extends Controller
 
     public function index(Request $request): Response
     {
-        $session = $this->foxlogger->getValidSession();
-        $devices = $this->foxlogger->getDeviceList();
-        $positions = $this->foxlogger->getReportPosition();
+        $session = \Illuminate\Support\Facades\Cache::get('foxlogger_token_session_truck_1', []);
+        $devices = \Illuminate\Support\Facades\Cache::get('foxlogger_devices_list_combined', []);
+        $positions = \Illuminate\Support\Facades\Cache::get('foxlogger_positions_report_combined', []);
+
+        // Fallback to fast non-blocking fetch only if cache is completely empty
+        if (empty($devices) && empty($positions)) {
+            $devices = $this->foxlogger->getDeviceList();
+            $positions = $this->foxlogger->getReportPosition();
+            $session = $this->foxlogger->getValidSession();
+        }
 
         return Inertia::render('GpsTracking', [
             'realDevices' => $devices,

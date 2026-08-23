@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Number;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Cache;
 
 class ReportController extends Controller
 {
@@ -37,8 +38,11 @@ class ReportController extends Controller
         $dateTo = $request->query('date_to', now()->format('Y-m-d'));
         $tab = $request->query('tab', 'overview');
 
-        // 1. Fetch Real AI Traffic Analytics from Holowits NVR Service
-        $liveData = $this->holowits->getLiveMonitoringData();
+        // 1. Fetch Real AI Traffic Analytics from Holowits NVR Service (instant cache on page view)
+        $isExport = $request->routeIs('*.export*') || $request->has('export');
+        $liveData = $isExport 
+            ? $this->holowits->getLiveMonitoringData() 
+            : Cache::get('holowits_truck_statuses', ['summary' => [], 'trucks' => []]);
         $grandSummary = $liveData['summary'] ?? [
             'total_motorcycles' => 0,
             'total_cars' => 0,
@@ -95,6 +99,15 @@ class ReportController extends Controller
             }
         }
 
+        // If grandSummary is missing keys or empty, guarantee all keys exist with 0
+        $grandSummary = [
+            'total_motorcycles' => $grandSummary['total_motorcycles'] ?? 0,
+            'total_cars' => $grandSummary['total_cars'] ?? 0,
+            'total_pedestrians' => $grandSummary['total_pedestrians'] ?? 0,
+            'total_buses' => $grandSummary['total_buses'] ?? 0,
+            'grand_total_traffic' => $grandSummary['grand_total_traffic'] ?? 0,
+        ];
+
         if ($truckFilter === 'truck_1') {
             $trafficSummary = [
                 'total_motorcycles' => $truck1Traffic['motorcycles'] ?? 0,
@@ -121,10 +134,10 @@ class ReportController extends Controller
 
         foreach ($hours as $idx => $hour) {
             $weight = $weights[$idx] ?? 0.05;
-            $m = (int)round($trafficSummary['total_motorcycles'] * $weight);
-            $c = (int)round($trafficSummary['total_cars'] * $weight);
-            $p = (int)round($trafficSummary['total_pedestrians'] * $weight);
-            $b = (int)round($trafficSummary['total_buses'] * $weight);
+            $m = (int)round(($trafficSummary['total_motorcycles'] ?? 0) * $weight);
+            $c = (int)round(($trafficSummary['total_cars'] ?? 0) * $weight);
+            $p = (int)round(($trafficSummary['total_pedestrians'] ?? 0) * $weight);
+            $b = (int)round(($trafficSummary['total_buses'] ?? 0) * $weight);
             $hourlyTraffic[] = [
                 'time' => $hour,
                 'motorcycles' => $m,
@@ -135,9 +148,13 @@ class ReportController extends Controller
             ];
         }
 
-        // 2. Fetch Real Playlog Data from VnNox Service
-        $playlogResult = $this->playlogService->getPlaylogRecordsData();
-        $playlistResult = $this->playlogService->getPlaylistData();
+        // 2. Fetch Real Playlog Data from VnNox Service (instant cache on page view)
+        $playlogResult = $isExport
+            ? $this->playlogService->getPlaylogRecordsData()
+            : Cache::get("vnnox_playlog_records_{$truckFilter}", Cache::get('vnnox_playlog_records_truck_1', ['records' => []]));
+        $playlistResult = $isExport
+            ? $this->playlogService->getPlaylistData()
+            : Cache::get("vnnox_playlist_data_{$truckFilter}", Cache::get('vnnox_playlist_data_truck_1', ['items' => []]));
         $allRecords = $playlogResult['records'] ?? [];
 
         $filteredRecords = [];
@@ -177,9 +194,13 @@ class ReportController extends Controller
             }
         }
 
-        // 3. Fetch Real GPS Data & Calculate Trip Metrics (Fast DB Aggregation)
-        $gpsPositions = $this->foxlogger->getReportPosition();
-        $gpsDevices = $this->foxlogger->getDeviceList();
+        // 3. Fetch Real GPS Data & Calculate Trip Metrics (instant cache on page view)
+        $gpsPositions = $isExport
+            ? $this->foxlogger->getReportPosition()
+            : Cache::get('foxlogger_positions_report_combined', []);
+        $gpsDevices = $isExport
+            ? $this->foxlogger->getDeviceList()
+            : Cache::get('foxlogger_devices_list_combined', []);
 
         $time1 = $dateFrom . ' 00:00:00';
         $time2 = $dateTo . ' 23:59:59';
@@ -212,17 +233,19 @@ class ReportController extends Controller
             ];
 
             if (!empty($imei)) {
-                $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
-                $totalRealDistanceKm += $metrics['distance_km'];
-                if ($metrics['avg_speed'] > 0) {
-                    $allSpeeds[] = $metrics['avg_speed'];
-                }
-                if ($metrics['max_speed'] > $maxRecordedSpeed) {
-                    $maxRecordedSpeed = $metrics['max_speed'];
+                if ($isExport) {
+                    $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
+                    $totalRealDistanceKm += $metrics['distance_km'];
+                    if ($metrics['avg_speed'] > 0) {
+                        $allSpeeds[] = $metrics['avg_speed'];
+                    }
+                    if ($metrics['max_speed'] > $maxRecordedSpeed) {
+                        $maxRecordedSpeed = $metrics['max_speed'];
+                    }
                 }
 
-                // Query detailed GPS logs only when tab is strictly 'gps' or on CSV/PDF export
-                if ($tab === 'gps' || $request->routeIs('*.export*')) {
+                // Query detailed GPS logs only when tab is strictly 'gps' on export or explicitly requested
+                if ($isExport && ($tab === 'gps' || $request->routeIs('*.export*'))) {
                     $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
                     if (!empty($rawHistory)) {
                         foreach ($rawHistory as $pt) {

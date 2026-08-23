@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     LayoutDashboard,
@@ -18,6 +18,13 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
     const { auth } = usePage().props;
     const user = auth?.user || { role: 'admin', isAdmin: true };
     const isAdmin = user.isAdmin ?? (user.role === 'admin');
+
+    // Optimistic active menu state: updates immediately on click
+    const [optimisticActiveMenu, setOptimisticActiveMenu] = useState(activeMenu);
+
+    useEffect(() => {
+        setOptimisticActiveMenu(activeMenu);
+    }, [activeMenu]);
 
     const allMenuItems = [
         {
@@ -62,13 +69,6 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
             href: '/laporan-detail',
             adminOnly: false,
         },
-        {
-            id: 'settings',
-            label: 'Pengaturan Global',
-            icon: Settings,
-            href: '/settings',
-            adminOnly: true, // Only visible to admin
-        },
     ];
 
     // Filter menu items based on role
@@ -98,7 +98,7 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
 
                     {menuItems.map((item) => {
                         const Icon = item.icon;
-                        const isActive = activeMenu === item.id;
+                        const isActive = optimisticActiveMenu === item.id;
 
                         return (
                             <Link
@@ -106,6 +106,9 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
                                 href={item.href}
                                 preserveState={false}
                                 preserveScroll={false}
+                                prefetch
+                                cacheFor="1m"
+                                onClick={() => setOptimisticActiveMenu(item.id)}
                                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all ${
                                     isActive
                                         ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30 font-bold'

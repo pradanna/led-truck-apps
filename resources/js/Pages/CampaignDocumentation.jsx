@@ -23,6 +23,7 @@ import {
   Eye
 } from 'lucide-react';
 import AppLayout from '../Layouts/AppLayout';
+import { SkeletonCampaignGrid } from '../Components/DashboardSkeleton';
 import axios from 'axios';
 
 export default function CampaignDocumentation({ documentations = [], clients = [] }) {
@@ -32,6 +33,7 @@ export default function CampaignDocumentation({ documentations = [], clients = [
   const [docsList, setDocsList] = useState(documentations);
   const [filterType, setFilterType] = useState('all'); // 'all', 'image', 'video'
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Modal Upload State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -287,7 +289,9 @@ export default function CampaignDocumentation({ documentations = [], clients = [
       </div>
 
       {/* DOCUMENTATIONS GRID */}
-      {filteredDocs.length > 0 ? (
+      {isLoading ? (
+        <SkeletonCampaignGrid />
+      ) : filteredDocs.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredDocs.map((doc) => (
             <div

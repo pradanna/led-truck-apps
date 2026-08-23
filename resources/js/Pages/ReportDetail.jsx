@@ -4,6 +4,12 @@ import Sidebar from '@/Components/Sidebar';
 import Navbar from '@/Components/Navbar';
 import DownloadProgressBar from '@/Components/DownloadProgressBar';
 import {
+    SkeletonReportOverview,
+    SkeletonReportTraffic,
+    SkeletonPlaylogTable,
+    SkeletonReportGps
+} from '@/Components/DashboardSkeleton';
+import {
     FileSpreadsheet,
     BarChart3,
     ListMusic,
@@ -322,6 +328,9 @@ export default function ReportDetail({
 
                     {/* TAB CONTENT: 1. OVERVIEW */}
                     {activeTab === 'overview' && (
+                        isRefreshing ? (
+                            <SkeletonReportOverview />
+                        ) : (
                         <div className="space-y-6">
                             {/* KPI Metrics */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -476,10 +485,14 @@ export default function ReportDetail({
                                 </div>
                             </div>
                         </div>
+                        )
                     )}
 
                     {/* TAB CONTENT: 2. TRAFFIC ANALYTICS */}
                     {activeTab === 'traffic' && (
+                        isRefreshing ? (
+                            <SkeletonReportTraffic />
+                        ) : (
                         <div className="space-y-6">
                             {/* Summary Bar Cards */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
@@ -639,10 +652,14 @@ export default function ReportDetail({
                                 </div>
                             </div>
                         </div>
+                        )
                     )}
 
                     {/* TAB CONTENT: 3. PLAYLOG IKLAN */}
                     {activeTab === 'playlog' && (
+                        isRefreshing ? (
+                            <SkeletonPlaylogTable />
+                        ) : (
                         <div className="space-y-6">
                             {/* Search & Filter Bar */}
                             <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -720,10 +737,14 @@ export default function ReportDetail({
                                 </div>
                             </div>
                         </div>
+                        )
                     )}
 
                     {/* TAB CONTENT: 4. LAPORAN RUTE & GPS */}
                     {activeTab === 'gps' && (
+                        isRefreshing ? (
+                            <SkeletonReportGps />
+                        ) : (
                         <div className="space-y-6">
                             {/* GPS Telemetry Cards */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -882,6 +903,7 @@ export default function ReportDetail({
                                 )}
                             </div>
                         </div>
+                        )
                     )}
                 </main>
             </div>

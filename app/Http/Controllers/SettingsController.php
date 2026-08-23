@@ -34,7 +34,7 @@ class SettingsController extends Controller
     public function index(Request $request): Response
     {
         $truckConfigs = $this->holowits->getTruckConfigs();
-        $foxloggerSession = $this->foxlogger->getValidSession();
+        $foxloggerSession = \Illuminate\Support\Facades\Cache::get('foxlogger_token_session_truck_1', []);
         $hasVnnox = $this->vnnox->hasConfiguredCredentials();
 
         // List all users for Admin User Management

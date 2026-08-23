@@ -20,6 +20,11 @@ import PlaylogBannerHeader from '../Components/Playlog/PlaylogBannerHeader';
 import PlaylistGrid from '../Components/Playlog/PlaylistGrid';
 import NovastarControllerCard from '../Components/Playlog/NovastarControllerCard';
 import PlaylogRecordsTable from '../Components/Playlog/PlaylogRecordsTable';
+import { 
+  SkeletonPlaylistGrid, 
+  SkeletonNovastarCard, 
+  SkeletonPlaylogTable 
+} from '../Components/DashboardSkeleton';
 import axios from 'axios';
 
 export default function PlaylogPlaylist({
@@ -37,7 +42,7 @@ export default function PlaylogPlaylist({
     const [currentControllerStatus, setCurrentControllerStatus] = useState(controllerStatus || { onlineStatus: false });
     const [currentPlaylogData, setCurrentPlaylogData] = useState(playlogData || { records: [] });
     const [toastMessage, setToastMessage] = useState('');
-    const [isLoadingLive, setIsLoadingLive] = useState(false);
+    const [isLoadingLive, setIsLoadingLive] = useState(!playlistData?.items?.length);
 
     // Background lazy fetch for live VNNOX data with AbortController
     useEffect(() => {
@@ -226,21 +231,33 @@ export default function PlaylogPlaylist({
             {/* Grid Row: Playlist (Left 2 cols) & Controller Specs (Right 1 col) */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
-                    <PlaylistGrid
-                        data={currentPlaylistData}
-                        onTriggerPlay={isAdmin ? handleTriggerPlay : null}
-                    />
+                    {isLoadingLive && !currentPlaylistData?.items?.length ? (
+                        <SkeletonPlaylistGrid />
+                    ) : (
+                        <PlaylistGrid
+                            data={currentPlaylistData}
+                            onTriggerPlay={isAdmin ? handleTriggerPlay : null}
+                        />
+                    )}
                 </div>
                 <div className="lg:col-span-1">
-                    <NovastarControllerCard status={currentControllerStatus} />
+                    {isLoadingLive && !currentControllerStatus?.processorChip && !currentControllerStatus?.refreshRate ? (
+                        <SkeletonNovastarCard />
+                    ) : (
+                        <NovastarControllerCard status={currentControllerStatus} />
+                    )}
                 </div>
             </div>
 
             {/* Bottom Section: Playlog Activity Records Table */}
-            <PlaylogRecordsTable
-                data={currentPlaylogData}
-                onExportCsv={handleExportCsv}
-            />
+            {isLoadingLive && !currentPlaylogData?.records?.length ? (
+                <SkeletonPlaylogTable />
+            ) : (
+                <PlaylogRecordsTable
+                    data={currentPlaylogData}
+                    onExportCsv={handleExportCsv}
+                />
+            )}
 
             {/* MODAL FORM TAMBAH MATERI BARU (NOVASTAR VNNOX SPEC) */}
             {isAddModalOpen && (

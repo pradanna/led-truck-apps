@@ -38,6 +38,10 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
   const todayStr = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(todayStr);
   const [selectedCheckpoint, setSelectedCheckpoint] = useState(null);
+  const [currentLivePositions, setCurrentLivePositions] = useState(realPositions);
+  const [currentLiveDevices, setCurrentLiveDevices] = useState(realDevices);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
 
   // Deduplicate and build standard fleet list
   const fleetList = useMemo(() => {
@@ -62,8 +66,8 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       return defaultFallback || unit || 'Truk LED';
     };
 
-    if (realPositions.length > 0) {
-      realPositions.forEach(pos => {
+    if (currentLivePositions.length > 0) {
+      currentLivePositions.forEach(pos => {
         const displayName = formatTruckDisplayName(pos.unit, pos.imei, 'Truk LED');
         addTruck({
           id: pos.imei,
@@ -82,8 +86,8 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       });
     }
 
-    if (realDevices.length > 0) {
-      realDevices.forEach(dev => {
+    if (currentLiveDevices.length > 0) {
+      currentLiveDevices.forEach(dev => {
         const displayName = formatTruckDisplayName(dev.gps_name, dev.imei, 'Truk LED');
         addTruck({
           id: dev.imei,
@@ -110,13 +114,14 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     }
 
     return list;
-  }, [realPositions, realDevices]);
+  }, [currentLivePositions, currentLiveDevices]);
 
   const [selectedTruckId, setSelectedTruckId] = useState(fleetList[0]?.id || '');
   const activeTruck = fleetList.find(t => String(t.id) === String(selectedTruckId)) || fleetList[0];
 
   const [rawHistoryPoints, setRawHistoryPoints] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // Reset selected checkpoint when truck or date changes
   useEffect(() => {
@@ -129,7 +134,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       const controller = new AbortController();
       setIsLoadingHistory(true);
 
-      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}`, { signal: controller.signal })
+      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}&_t=${Date.now()}`, { signal: controller.signal })
         .then(res => res.json())
         .then(data => {
           if (data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -163,21 +168,49 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
             setRawHistoryPoints([]);
           }
         })
-        .catch(err => {
-          if (err.name !== 'AbortError') {
-            console.error("Error fetching GPS history:", err);
-            setRawHistoryPoints([]);
-          }
+        .catch(() => {
+          setRawHistoryPoints([]);
         })
         .finally(() => {
           setIsLoadingHistory(false);
         });
 
-      return () => {
-        controller.abort(); // Interupsi dan batalkan request saat ganti truk/tanggal atau pindah menu
-      };
+      return () => controller.abort();
     }
-  }, [activeTruck?.imei, selectedDate]);
+  }, [activeTruck?.imei, selectedDate, refreshTrigger]);
+
+  // Force Live Sync directly from Foxlogger API
+  const handleLiveRefresh = async () => {
+    setIsSyncing(true);
+    setSyncMessage('Menyinkronkan data GPS langsung dari server Foxlogger...');
+
+    try {
+      const res = await fetch(`/api/gps-live-sync?_t=${Date.now()}`);
+      const data = await res.json();
+
+      if (data.success) {
+        if (data.positions && data.positions.length > 0) {
+          setCurrentLivePositions(data.positions);
+        }
+        if (data.devices && data.devices.length > 0) {
+          setCurrentLiveDevices(data.devices);
+        }
+        // Trigger history reload
+        setRefreshTrigger(prev => prev + 1);
+        setSyncMessage(`Berhasil diperbarui pukul ${data.synced_at || 'sekarang'}`);
+        setTimeout(() => setSyncMessage(''), 3500);
+      } else {
+        setSyncMessage('Gagal menyinkronkan data GPS');
+        setTimeout(() => setSyncMessage(''), 3000);
+      }
+    } catch (err) {
+      setSyncMessage('Terjadi kendala saat menyinkronkan data GPS');
+      setTimeout(() => setSyncMessage(''), 3000);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
 
   // Filter history points to 1-minute sampling intervals for clean display
   const realHistoryPoints = useMemo(() => {
@@ -240,14 +273,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     return [];
   }, [realHistoryPoints, activeTruck, isSelectedDateToday]);
 
-  // Export handlers
-  const handleExportExcel = () => {
-    window.location.href = `/api/export-gps-excel?imei=${activeTruck.imei}&date=${selectedDate}`;
-  };
 
-  const handleExportPdf = () => {
-    window.open(`/api/export-gps-pdf?imei=${activeTruck.imei}&date=${selectedDate}`, '_blank');
-  };
 
   return (
     <>
@@ -323,27 +349,41 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                 )}
               </div>
 
-              {/* EXPORT ACTION BUTTONS (EXCEL & PDF) */}
+              {/* REFRESH ACTION BUTTON */}
               <div className="flex items-center gap-2 w-full md:w-auto justify-end">
                 <button
-                  onClick={handleExportExcel}
-                  className="py-2 px-3.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="Ekspor Riwayat Rute ke Excel / CSV (Interval 1 Menit)"
+                  type="button"
+                  onClick={handleLiveRefresh}
+                  disabled={isSyncing}
+                  className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                  title="Ambil data posisi & riwayat GPS paling mutakhir langsung dari Foxlogger"
                 >
-                  <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-                  <span>Ekspor Excel (.CSV)</span>
-                </button>
-
-                <button
-                  onClick={handleExportPdf}
-                  className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="Ekspor Dokumen Laporan ke PDF (Interval 1 Menit)"
-                >
-                  <FileText className="w-4 h-4 text-white" />
-                  <span>Cetak / PDF</span>
+                  <RefreshCw className={`w-3.5 h-3.5 text-white ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Menyinkronkan...' : 'Refresh GPS'}</span>
                 </button>
               </div>
             </div>
+
+            {/* Sync Notification Banner */}
+            {syncMessage && (
+              <div className={`p-3.5 rounded-xl border text-xs flex items-center justify-between transition-all ${
+                syncMessage.includes('Berhasil') 
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
+                  : syncMessage.includes('Gagal') || syncMessage.includes('kendala')
+                    ? 'bg-rose-50 border-rose-200 text-rose-800'
+                    : 'bg-blue-50 border-blue-200 text-blue-800'
+              }`}>
+                <div className="flex items-center gap-2">
+                  <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span className="font-semibold">{syncMessage}</span>
+                </div>
+                {!isSyncing && (
+                  <button onClick={() => setSyncMessage('')} className="text-slate-400 hover:text-slate-600 font-bold text-xs">
+                    Tutup
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* GPS TRACKING REAL MAP */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

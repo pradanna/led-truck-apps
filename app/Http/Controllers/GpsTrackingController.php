@@ -34,6 +34,23 @@ class GpsTrackingController extends Controller
         ]);
     }
 
+    /**
+     * Force refresh live positions and devices directly from Foxlogger API
+     */
+    public function liveSync(Request $request)
+    {
+        $devices = $this->foxlogger->getDeviceList(true);
+        $positions = $this->foxlogger->getReportPosition(true);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data GPS berhasil disinkronkan langsung dari Foxlogger.',
+            'devices' => $devices,
+            'positions' => $positions,
+            'synced_at' => now()->translatedFormat('H:i:s') . ' WIB',
+        ]);
+    }
+
     public function refreshToken(Request $request)
     {
         $providedToken = $request->input('refresh_token');

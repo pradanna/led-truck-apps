@@ -36,6 +36,7 @@ Route::middleware('auth')->group(function () {
 
     // 2. GPS Tracking (Viewable by All)
     Route::get('/gps-tracking', [GpsTrackingController::class, 'index'])->name('gps.tracking');
+    Route::get('/api/gps-live-sync', [GpsTrackingController::class, 'liveSync']);
     Route::get('/api/gps-history/{imei}', [GpsTrackingController::class, 'getGpsHistory']);
     Route::get('/api/export-gps-excel', [GpsTrackingController::class, 'exportExcel']);
     Route::get('/api/export-gps-pdf', [GpsTrackingController::class, 'exportPdf']);

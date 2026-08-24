@@ -303,32 +303,34 @@ class FoxloggerService
         $dateKey = date('Y-m-d', strtotime($time1));
         $isToday = ($dateKey === date('Y-m-d'));
 
-        // If querying a past date, check local DB first (Instant & permanent archive)
-        if (!$isToday) {
-            $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
-                ->whereBetween('logged_at', [$time1, $time2])
-                ->orderBy('logged_at', 'asc')
-                ->get();
+        // Check local DB first for ALL dates (including today) — DB has granular 10-second data
+        // For today: DB may already have data synced from live position polling
+        // For past dates: DB has permanent archived data
+        $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
+            ->whereBetween('logged_at', [$time1, $time2])
+            ->orderBy('logged_at', 'asc')
+            ->get();
 
-            if ($dbLogs->count() > 0) {
-                $formattedFromDb = $dbLogs->map(function ($log) {
-                    return [
-                        'time' => $log->logged_at->format('Y-m-d H:i:s'),
-                        'lat' => (string)$log->latitude,
-                        'long' => (string)$log->longitude,
-                        'Speed' => (int)$log->speed,
-                        'addr' => $log->address,
-                        'status' => $log->status,
-                        'engi' => $log->engine_status,
-                        'Mill' => $log->mileage_km,
-                        'unit' => $log->truck_plate,
-                        'imei' => $log->imei,
-                    ];
-                })->toArray();
+        if ($dbLogs->count() > 0) {
+            $formattedFromDb = $dbLogs->map(function ($log) {
+                return [
+                    'time' => $log->logged_at->format('Y-m-d H:i:s'),
+                    'lat' => (string)$log->latitude,
+                    'long' => (string)$log->longitude,
+                    'Speed' => (int)$log->speed,
+                    'addr' => $log->address,
+                    'status' => $log->status,
+                    'engi' => $log->engine_status,
+                    'Mill' => $log->mileage_km,
+                    'unit' => $log->truck_plate,
+                    'imei' => $log->imei,
+                ];
+            })->toArray();
 
-                Cache::put($cacheKey, $formattedFromDb, now()->addHours(6));
-                return $formattedFromDb;
-            }
+            // Short TTL for today (refreshes frequently), long for past (permanent)
+            $ttl = $isToday ? now()->addMinutes(2) : now()->addHours(6);
+            Cache::put($cacheKey, $formattedFromDb, $ttl);
+            return $formattedFromDb;
         }
 
         $accounts = $this->getAllAccountCredentials();

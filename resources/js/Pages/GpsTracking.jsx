@@ -120,7 +120,18 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     return list;
   }, [currentLivePositions, currentLiveDevices]);
 
-  const [selectedTruckId, setSelectedTruckId] = useState(fleetList[0]?.id || '');
+  // Initialize selectedTruckId from localStorage if available
+  const [selectedTruckId, setSelectedTruckId] = useState(() => {
+    const saved = localStorage.getItem('gps_tracking_selected_truck');
+    return saved || fleetList[0]?.id || '';
+  });
+
+  // Save selected truck tab to localStorage
+  const handleSelectTruck = (truckId) => {
+    setSelectedTruckId(truckId);
+    localStorage.setItem('gps_tracking_selected_truck', truckId);
+  };
+
   const activeTruck = fleetList.find(t => String(t.id) === String(selectedTruckId)) || fleetList[0];
 
   const [rawHistoryPoints, setRawHistoryPoints] = useState([]);
@@ -173,36 +184,33 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     }
   }, [activeTruck?.imei, selectedDate, refreshTrigger]);
 
-  // Force Live Sync directly from Foxlogger API
+  // Force Live Sync directly from Foxlogger API & Reload keeping truck tab state
   const handleLiveRefresh = async () => {
     setIsSyncing(true);
     setSyncMessage('Menyinkronkan data GPS langsung dari server Foxlogger...');
 
     try {
+      if (activeTruck && activeTruck.id) {
+        localStorage.setItem('gps_tracking_selected_truck', activeTruck.id);
+      }
+
       const res = await fetch(`/api/gps-live-sync?_t=${Date.now()}`);
       const data = await res.json();
 
       if (data.success) {
-        if (data.positions && data.positions.length > 0) {
-          setCurrentLivePositions(data.positions);
-        }
-        if (data.devices && data.devices.length > 0) {
-          setCurrentLiveDevices(data.devices);
-        }
-        // Reset selected checkpoint so map focuses on newest point
-        setSelectedCheckpoint(null);
-        // Trigger history reload with cache bypass
-        setRefreshTrigger(Date.now());
-        setSyncMessage(`Berhasil diperbarui pukul ${data.synced_at || 'sekarang'}`);
-        setTimeout(() => setSyncMessage(''), 3500);
+        setSyncMessage(`Berhasil disinkronkan. Memuat ulang data...`);
+        // Reload page to refresh full Inertia props and clean map instance without losing tab state
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } else {
         setSyncMessage('Gagal menyinkronkan data GPS');
         setTimeout(() => setSyncMessage(''), 3000);
+        setIsSyncing(false);
       }
     } catch (err) {
       setSyncMessage('Terjadi kendala saat menyinkronkan data GPS');
       setTimeout(() => setSyncMessage(''), 3000);
-    } finally {
       setIsSyncing(false);
     }
   };
@@ -302,7 +310,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                       <button
                         key={truck.id}
                         type="button"
-                        onClick={() => setSelectedTruckId(truck.id)}
+                        onClick={() => handleSelectTruck(truck.id)}
                         className={`px-3.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-2 transition-all cursor-pointer ${
                           isSelected
                             ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'

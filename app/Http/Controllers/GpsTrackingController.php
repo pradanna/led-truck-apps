@@ -35,12 +35,21 @@ class GpsTrackingController extends Controller
     }
 
     /**
-     * Force refresh live positions and devices directly from Foxlogger API
+     * Force refresh live positions and sync full day history directly from Foxlogger API
      */
     public function liveSync(Request $request)
     {
         $devices = $this->foxlogger->getDeviceList(true);
         $positions = $this->foxlogger->getReportPosition(true);
+
+        // Also fetch and archive today's history for all active trucks to DB
+        $targetImeis = ['0356153590691330', '0866833070213829'];
+        $today = date('Y-m-d');
+        foreach ($targetImeis as $imei) {
+            try {
+                $this->foxlogger->getGpsHistory($imei, $today, true);
+            } catch (\Throwable $t) {}
+        }
 
         return response()->json([
             'success' => true,
@@ -78,9 +87,15 @@ class GpsTrackingController extends Controller
         $date = $request->query('date', date('Y-m-d'));
         $forceRefresh = $request->boolean('refresh');
 
+        $time1 = $date . ' 00:00:00';
+        $time2 = ($date === date('Y-m-d')) ? date('Y-m-d H:i:s') : ($date . ' 23:59:59');
+
         // 1. Direct fetch from Local Database (Ultra fast <10ms)
         $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
-            ->where('log_date', $date)
+            ->where(function ($q) use ($date, $time1, $time2) {
+                $q->where('log_date', $date)
+                  ->orWhereBetween('logged_at', [$time1, $time2]);
+            })
             ->orderBy('logged_at', 'asc')
             ->get();
 
@@ -103,8 +118,8 @@ class GpsTrackingController extends Controller
                 ];
             })->toArray();
         } else {
-            // Only query external API if DB is totally empty or user explicitly clicked Refresh GPS
-            $history = $this->foxlogger->getGpsHistory($imei, $date, $forceRefresh);
+            // Pull from Foxlogger API (will automatically save new points to DB)
+            $history = $this->foxlogger->getGpsHistory($imei, $date, true);
         }
 
         // Smart Server-Side Downsampling / Compression (1-Minute Sampling)

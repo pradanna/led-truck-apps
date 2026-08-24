@@ -205,7 +205,7 @@ class ReportController extends Controller
             : $this->foxlogger->getDeviceList();
 
         $time1 = $dateFrom . ' 00:00:00';
-        $time2 = $dateTo . ' 23:59:59';
+        $time2 = ($dateTo === date('Y-m-d')) ? date('Y-m-d H:i:s') : ($dateTo . ' 23:59:59');
 
         $totalRealDistanceKm = 0.0;
         $allSpeeds = [];

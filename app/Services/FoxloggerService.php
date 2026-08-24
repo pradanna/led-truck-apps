@@ -239,6 +239,40 @@ class FoxloggerService
      */
     public function getReportPosition(bool $forceRefresh = false): array
     {
+        // 1. Prioritize reading latest live positions from local DB (Instant & synced by WSS/Cron)
+        $targetImeis = [
+            '0356153590691330' => 'Truk LED 01 (B 9731 JXS)',
+            '0866833070213829' => 'Truk LED 02 (B 9729 JXS)',
+        ];
+
+        $dbPositions = [];
+        foreach ($targetImeis as $imei => $defaultPlate) {
+            $latest = \App\Models\GpsTelemetryLog::where('imei', $imei)
+                ->orderBy('logged_at', 'desc')
+                ->first();
+
+            if ($latest) {
+                $dbPositions[] = [
+                    'imei' => $latest->imei,
+                    'unit' => $latest->truck_plate ?: $defaultPlate,
+                    'lo_lat' => (string)$latest->latitude,
+                    'lo_long' => (string)$latest->longitude,
+                    'lat' => (string)$latest->latitude,
+                    'long' => (string)$latest->longitude,
+                    'Speed' => (int)$latest->speed,
+                    'speed' => (int)$latest->speed,
+                    'status' => $latest->status,
+                    'engi' => $latest->engine_status,
+                    'address' => $latest->address,
+                    'last_upd' => $latest->logged_at->format('Y-m-d H:i:s'),
+                ];
+            }
+        }
+
+        if (!empty($dbPositions) && !$forceRefresh) {
+            return $dbPositions;
+        }
+
         $cacheKey = 'foxlogger_positions_report_combined';
         $cached = Cache::get($cacheKey);
         $cacheAge = Cache::get("{$cacheKey}_time", 0);
@@ -348,55 +382,30 @@ class FoxloggerService
             $time2 = $time2 ?? date('Y-m-d H:i:s');
         }
 
-        // Cache bucketed for maximum 60 seconds on today's data so it always stays fresh
-        $cacheKeyPayload = $isToday ? "{$dateKey}_" . date('YmdHi') : md5($time1 . $time2);
-        $cacheKey = "foxlogger_history_{$imei}_{$cacheKeyPayload}";
+        // 1. Direct fetch from local DB first (Always fresh from WSS/Cron, never blocked by old cache)
+        if (!$forceRefresh) {
+            $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
+                ->whereBetween('logged_at', [$time1, $time2])
+                ->orderBy('logged_at', 'asc')
+                ->get();
 
-        if (!$forceRefresh && Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
-
-        if ($forceRefresh) {
-            goto fetchFromApi;
-        }
-
-        // Check local DB first for ALL dates (including today)
-        $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
-            ->whereBetween('logged_at', [$time1, $time2])
-            ->orderBy('logged_at', 'asc')
-            ->get();
-
-        if ($dbLogs->count() > 0) {
-            // For today's data: check the latest timestamp in DB against current time
-            // If the latest point is older than 60 seconds (1 minute), fetch fresh data from Foxlogger API
-            if ($isToday) {
-                $newestLog = $dbLogs->last();
-                $ageInSeconds = now('Asia/Jakarta')->diffInSeconds($newestLog->logged_at);
-                if ($ageInSeconds > 60) {
-                    Log::info("GpsTelemetryLog for {$imei} is {$ageInSeconds}s behind current time. Fetching fresh updates from Foxlogger API.");
-                    goto fetchFromApi;
-                }
+            if ($dbLogs->count() > 0) {
+                return $dbLogs->map(function ($log) {
+                    return [
+                        'time' => $log->logged_at->format('Y-m-d H:i:s'),
+                        'lat' => (string)$log->latitude,
+                        'long' => (string)$log->longitude,
+                        'Speed' => (int)$log->speed,
+                        'speed' => (int)$log->speed,
+                        'addr' => $log->address,
+                        'status' => $log->status,
+                        'engi' => $log->engine_status,
+                        'Mill' => $log->mileage_km,
+                        'unit' => $log->truck_plate,
+                        'imei' => $log->imei,
+                    ];
+                })->toArray();
             }
-
-            $formattedFromDb = $dbLogs->map(function ($log) {
-                return [
-                    'time' => $log->logged_at->format('Y-m-d H:i:s'),
-                    'lat' => (string)$log->latitude,
-                    'long' => (string)$log->longitude,
-                    'Speed' => (int)$log->speed,
-                    'addr' => $log->address,
-                    'status' => $log->status,
-                    'engi' => $log->engine_status,
-                    'Mill' => $log->mileage_km,
-                    'unit' => $log->truck_plate,
-                    'imei' => $log->imei,
-                ];
-            })->toArray();
-
-            // 1-minute TTL for today so subsequent requests within the minute are instant
-            $ttl = $isToday ? now()->addSeconds(60) : now()->addHours(6);
-            Cache::put($cacheKey, $formattedFromDb, $ttl);
-            return $formattedFromDb;
         }
 
         fetchFromApi:

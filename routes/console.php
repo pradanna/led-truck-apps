@@ -3,8 +3,14 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 
-use Illuminate\Support\Facades\Schedule;
+// 1. Cron Sync Cepat Otomatis Tiap Menit (Background Pull & DB Update)
+Schedule::command('gps:sync-daily --days=1')
+    ->everyMinute()
+    ->timezone('Asia/Jakarta')
+    ->withoutOverlapping()
+    ->description('Sinkronisasi otomatis titik GPS aktif armada tiap menit ke database');
 
+// 2. Backup & Arsip Harian Pukul 23:55
 Schedule::command('gps:sync-daily --days=2')
     ->dailyAt('23:55')
     ->timezone('Asia/Jakarta')
@@ -14,11 +20,6 @@ Schedule::command('traffic:sync-daily')
     ->dailyAt('23:55')
     ->timezone('Asia/Jakarta')
     ->description('Otomatis backup dan arsipkan statistik AI Traffic NVR hari ini ke database lokal');
-
-Schedule::command('gps:sync-daily --days=1')
-    ->hourly()
-    ->timezone('Asia/Jakarta')
-    ->description('Sinkronisasi berkala titik GPS aktif harian');
 
 Schedule::command('traffic:sync-daily')
     ->hourly()

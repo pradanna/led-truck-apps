@@ -172,51 +172,6 @@ class FoxloggerService
         return null;
     }
 
-    /**
-     * Fetch device list across all accounts with 2-minute Cache.
-     */
-    public function getDeviceList(bool $forceRefresh = false): array
-    {
-        if (!$forceRefresh && Cache::has('foxlogger_devices_list_combined')) {
-            return Cache::get('foxlogger_devices_list_combined');
-        }
-
-        $accounts = $this->getAllAccountCredentials();
-        $combinedDevices = [];
-
-        foreach ($accounts as $key => $cred) {
-            $session = $this->getValidSessionForAccount($key);
-            if (!$session || empty($session['user_id'])) {
-                continue;
-            }
-
-            try {
-                $response = Http::timeout(1)
-                    ->withToken($session['access_token'])
-                    ->withoutVerifying()
-                    ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
-
-                if ($response->status() === 401) {
-                    $session = $this->refreshTokenForAccount($key);
-                    if ($session) {
-                        $response = Http::timeout(1)
-                            ->withToken($session['access_token'])
-                            ->withoutVerifying()
-                            ->get("{$this->baseUrl}/user_data_all/{$session['user_id']}");
-                    }
-                }
-
-                if ($response->successful()) {
-                    $devices = $response->json()['data'] ?? [];
-                    foreach ($devices as $dev) {
-                        $dev['account_key'] = $key;
-                        $combinedDevices[] = $dev;
-                    }
-                }
-            } catch (\Throwable $e) {
-                // Non-blocking fail-fast
-            }
-        }
 
     /**
      * Fetch all registered GPS device objects across all accounts.

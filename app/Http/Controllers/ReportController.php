@@ -233,19 +233,18 @@ class ReportController extends Controller
             ];
 
             if (!empty($imei)) {
-                if ($isExport) {
-                    $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
-                    $totalRealDistanceKm += $metrics['distance_km'];
-                    if ($metrics['avg_speed'] > 0) {
-                        $allSpeeds[] = $metrics['avg_speed'];
-                    }
-                    if ($metrics['max_speed'] > $maxRecordedSpeed) {
-                        $maxRecordedSpeed = $metrics['max_speed'];
-                    }
+                // Always calculate trip metrics for page view AND export
+                $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
+                $totalRealDistanceKm += $metrics['distance_km'];
+                if ($metrics['avg_speed'] > 0) {
+                    $allSpeeds[] = $metrics['avg_speed'];
+                }
+                if ($metrics['max_speed'] > $maxRecordedSpeed) {
+                    $maxRecordedSpeed = $metrics['max_speed'];
                 }
 
-                // Query detailed GPS logs only when tab is strictly 'gps' on export or explicitly requested
-                if ($isExport && ($tab === 'gps' || $request->routeIs('*.export*'))) {
+                // Fetch GPS history logs for GPS tab (always) and export
+                if ($tab === 'gps' || $isExport) {
                     $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
                     if (!empty($rawHistory)) {
                         foreach ($rawHistory as $pt) {
@@ -309,7 +308,7 @@ class ReportController extends Controller
                 }
             }
 
-            // Now apply 15-minute interval sampling on unique movement points
+            // Apply 1-minute interval sampling on unique movement points
             $sampledPoints = [];
             $lastTimeSec = 0;
 
@@ -318,7 +317,7 @@ class ReportController extends Controller
                 if (empty($timeStr)) continue;
 
                 $currentSec = strtotime($timeStr);
-                if ($lastTimeSec === 0 || abs($currentSec - $lastTimeSec) >= (14 * 60)) {
+                if ($lastTimeSec === 0 || abs($currentSec - $lastTimeSec) >= 60) {
                     $sampledPoints[] = $pt;
                     $lastTimeSec = $currentSec;
                 }

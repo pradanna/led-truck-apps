@@ -179,7 +179,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     }
   }, [activeTruck?.imei, selectedDate]);
 
-  // Filter history points to 15-minute sampling intervals for clean display
+  // Filter history points to 1-minute sampling intervals for clean display
   const realHistoryPoints = useMemo(() => {
     if (rawHistoryPoints.length === 0) return [];
     
@@ -192,7 +192,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       const timeStr = pt.time ? pt.time.replace(' ', 'T') : '';
       const currentMs = new Date(timeStr).getTime();
       
-      if (!lastTimeMs || isNaN(currentMs) || Math.abs(currentMs - lastTimeMs) >= 14 * 60 * 1000) {
+      if (!lastTimeMs || isNaN(currentMs) || Math.abs(currentMs - lastTimeMs) >= 1 * 60 * 1000) {
         sampled.push(pt);
         if (!isNaN(currentMs)) {
           lastTimeMs = currentMs;

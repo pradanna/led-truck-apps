@@ -69,18 +69,22 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
     if (currentLivePositions.length > 0) {
       currentLivePositions.forEach(pos => {
         const displayName = formatTruckDisplayName(pos.unit, pos.imei, 'Truk LED');
+        const lat = parseFloat(pos.lo_lat || pos.lat || pos.latitude || pos.last_latitude) || -6.315447;
+        const lng = parseFloat(pos.lo_long || pos.long || pos.longitude || pos.last_longitude) || 106.634666;
+        const speed = pos.Speed !== undefined ? pos.Speed : (pos.speed !== undefined ? pos.speed : (pos.last_speed || 0));
+
         addTruck({
           id: pos.imei,
           name: `${displayName} (${pos.imei})`,
           gpsName: displayName,
-          speed: pos.Speed || pos.last_speed || 0,
-          address: pos.address || 'Posisi GPS Armada',
-          lat: parseFloat(pos.lo_lat || pos.last_latitude) || -6.315447,
-          lng: parseFloat(pos.lo_long || pos.last_longitude) || 106.634666,
+          speed: speed,
+          address: pos.address || pos.addr || 'Posisi GPS Armada',
+          lat: lat,
+          lng: lng,
           status: pos.status === 'MOVE' ? 'Berkendara (LIVE)' : 'Berhenti (OFF)',
-          lastTime: pos.last_upd || 'Terbaru',
+          lastTime: pos.last_upd || pos.time || 'Terbaru',
           driver: pos.drv || 'Driver Operasional',
-          engine: pos.engi || (pos.status === 'MOVE' ? 'ON' : 'OFF'),
+          engine: pos.engi || pos.engine_status || (pos.status === 'MOVE' ? 'ON' : 'OFF'),
           imei: pos.imei
         });
       });
@@ -149,29 +153,17 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
               address: pt.addr || pt.address || 'Posisi Rute Armada'
             })).filter(pt => !isNaN(pt.lat) && !isNaN(pt.lng));
 
-            const uniquePoints = [];
-            formatted.forEach((pt) => {
-              if (uniquePoints.length === 0) {
-                uniquePoints.push(pt);
-              } else {
-                const prev = uniquePoints[uniquePoints.length - 1];
-                const isSameAddress = pt.address && prev.address && pt.address.trim() === prev.address.trim();
-                const isSameCoord = Math.abs(pt.lat - prev.lat) < 0.0001 && Math.abs(pt.lng - prev.lng) < 0.0001;
-                
-                if (!isSameAddress && !isSameCoord) {
-                  uniquePoints.push(pt);
-                }
-              }
-            });
-
-            uniquePoints.reverse();
-            setRawHistoryPoints(uniquePoints);
+            // Backend already performs smart sampling. Sort newest first for sidebar list.
+            const sortedNewestFirst = [...formatted].sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+            setRawHistoryPoints(sortedNewestFirst);
           } else {
             setRawHistoryPoints([]);
           }
         })
-        .catch(() => {
-          setRawHistoryPoints([]);
+        .catch(err => {
+          if (err.name !== 'AbortError') {
+            setRawHistoryPoints([]);
+          }
         })
         .finally(() => {
           setIsLoadingHistory(false);
@@ -216,28 +208,9 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
   };
 
 
-  // Filter history points to 1-minute sampling intervals for clean display
+  // Use sampled history points directly from backend
   const realHistoryPoints = useMemo(() => {
-    if (rawHistoryPoints.length === 0) return [];
-    
-    const sampled = [];
-    let lastTimeMs = null;
-
-    const chronological = [...rawHistoryPoints].reverse();
-    
-    chronological.forEach((pt) => {
-      const timeStr = pt.time ? pt.time.replace(' ', 'T') : '';
-      const currentMs = new Date(timeStr).getTime();
-      
-      if (!lastTimeMs || isNaN(currentMs) || Math.abs(currentMs - lastTimeMs) >= 1 * 60 * 1000) {
-        sampled.push(pt);
-        if (!isNaN(currentMs)) {
-          lastTimeMs = currentMs;
-        }
-      }
-    });
-
-    return sampled.reverse();
+    return rawHistoryPoints || [];
   }, [rawHistoryPoints]);
 
   const isSelectedDateToday = selectedDate === todayStr;

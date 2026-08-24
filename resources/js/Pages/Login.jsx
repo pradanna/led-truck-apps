@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router, usePage } from '@inertiajs/react';
 import {
   ShieldCheck,
@@ -15,7 +15,12 @@ import {
   BarChart3,
   Navigation,
   Eye,
-  MessageSquare
+  EyeOff,
+  MessageSquare,
+  X,
+  Clock,
+  ShieldAlert,
+  HelpCircle
 } from 'lucide-react';
 
 export default function Login() {
@@ -24,6 +29,64 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Modal Error State
+  const [errorModal, setErrorModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'general', // 'invalid', 'expired', 'inactive', 'network'
+  });
+
+  // Helper to determine error title & type based on message
+  const analyzeErrorMessage = (msg) => {
+    if (!msg) return { title: 'Gagal Masuk ke Portal', type: 'general' };
+    const lower = msg.toLowerCase();
+
+    if (lower.includes('berakhir') || lower.includes('kadaluarsa') || lower.includes('expired')) {
+      return {
+        title: 'Masa Berlaku Akun Telah Berakhir',
+        type: 'expired',
+        suggestion: 'Masa aktif akses akun Anda telah habis. Silakan hubungi tim administrator untuk proses perpanjangan masa tayang / monitoring armada.'
+      };
+    }
+    if (lower.includes('nonaktif') || lower.includes('dinonaktifkan')) {
+      return {
+        title: 'Akun Sedang Dinonaktifkan',
+        type: 'inactive',
+        suggestion: 'Status akun Anda saat ini sedang dinonaktifkan oleh administrator. Silakan hubungi admin untuk mengaktifkan kembali.'
+      };
+    }
+    if (lower.includes('jaringan') || lower.includes('network') || lower.includes('koneksi')) {
+      return {
+        title: 'Kendala Jaringan / Koneksi',
+        type: 'network',
+        suggestion: 'Terjadi gangguan komunikasi dengan server. Pastikan koneksi internet Anda stabil dan coba beberapa saat lagi.'
+      };
+    }
+
+    return {
+      title: 'Kombinasi Akun Tidak Sesuai',
+      type: 'invalid',
+      suggestion: 'Email atau kata sandi yang Anda masukkan tidak cocok dengan data terdaftar. Periksa kembali ejaan email dan huruf besar/kecil kata sandi Anda.'
+    };
+  };
+
+  // Trigger modal when errors prop changes from backend
+  useEffect(() => {
+    if (errors && Object.keys(errors).length > 0) {
+      const firstError = Object.values(errors)[0];
+      const { title, type, suggestion } = analyzeErrorMessage(firstError);
+      setErrorModal({
+        isOpen: true,
+        title,
+        message: firstError,
+        type,
+        suggestion,
+      });
+    }
+  }, [errors]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -34,6 +97,18 @@ export default function Login() {
       password,
       remember,
     }, {
+      onError: (errs) => {
+        setIsLoading(false);
+        const firstError = Object.values(errs)[0] || 'Kombinasi email atau kata sandi tidak valid.';
+        const { title, type, suggestion } = analyzeErrorMessage(firstError);
+        setErrorModal({
+          isOpen: true,
+          title,
+          message: firstError,
+          type,
+          suggestion,
+        });
+      },
       onFinish: () => setIsLoading(false)
     });
   };
@@ -129,11 +204,12 @@ export default function Login() {
 
               {/* Error Alert Box */}
               {errors && Object.keys(errors).length > 0 && (
-                <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2.5 shadow-xs">
-                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                  <div>
+                <div className="mb-5 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold flex items-start gap-3 shadow-xs animate-in fade-in">
+                  <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 flex-1">
+                    <div className="font-extrabold text-rose-900">Gagal Masuk ke Portal</div>
                     {Object.values(errors).map((err, idx) => (
-                      <p key={idx}>{err}</p>
+                      <p key={idx} className="font-medium text-rose-700">{err}</p>
                     ))}
                   </div>
                 </div>
@@ -165,13 +241,21 @@ export default function Login() {
                   <div className="relative">
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5 pointer-events-none" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-slate-400"
+                      className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs font-semibold focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 transition-all placeholder:text-slate-400"
                       placeholder="••••••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-slate-400 hover:text-slate-700 p-1"
+                      title={showPassword ? 'Sembunyikan kata sandi' : 'Lihat kata sandi'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
@@ -237,6 +321,94 @@ export default function Login() {
           </div>
         </div>
       </div>
+
+      {/* POPUP MODAL ERROR INTERAKTIF (LIGHT MODE) */}
+      {errorModal.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200">
+            {/* Header Icon & Title */}
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3.5">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+                    errorModal.type === 'expired'
+                      ? 'bg-amber-50 border-amber-200 text-amber-600'
+                      : errorModal.type === 'inactive'
+                      ? 'bg-slate-100 border-slate-300 text-slate-700'
+                      : errorModal.type === 'network'
+                      ? 'bg-amber-50 border-amber-200 text-amber-600'
+                      : 'bg-rose-50 border-rose-200 text-rose-600'
+                  }`}
+                >
+                  {errorModal.type === 'expired' ? (
+                    <Clock className="w-6 h-6" />
+                  ) : errorModal.type === 'inactive' ? (
+                    <ShieldAlert className="w-6 h-6" />
+                  ) : (
+                    <AlertCircle className="w-6 h-6" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900 leading-snug">
+                    {errorModal.title}
+                  </h3>
+                  <span
+                    className={`inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full mt-1 ${
+                      errorModal.type === 'expired'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    AUTENTIKASI DITOLAK
+                  </span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setErrorModal({ ...errorModal, isOpen: false })}
+                className="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Error Body Message */}
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
+              <div className="font-bold text-slate-900 leading-relaxed">
+                {errorModal.message}
+              </div>
+              {errorModal.suggestion && (
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  {errorModal.suggestion}
+                </p>
+              )}
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setErrorModal({ ...errorModal, isOpen: false })}
+                className="w-full sm:flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors cursor-pointer shadow-sm shadow-blue-600/30 text-center"
+              >
+                Tutup & Coba Lagi
+              </button>
+
+              <a
+                href={`https://wa.me/6281234567890?text=Halo%20Admin%20LED-FLX,%20saya%20mengalami%20kendala%20saat%20login:%20${encodeURIComponent(
+                  errorModal.message
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto py-2.5 px-4 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 hover:border-emerald-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Bantuan Admin</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

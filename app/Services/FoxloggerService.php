@@ -294,24 +294,38 @@ class FoxloggerService
         date_default_timezone_set('Asia/Jakarta');
         $time1 = $time1 ?? date('Y-m-d 00:00:00');
         $time2 = $time2 ?? date('Y-m-d H:i:s');
-        $cacheKey = "foxlogger_history_{$imei}_" . md5($time1 . $time2);
+        $dateKey = date('Y-m-d', strtotime($time1));
+        $isToday = ($dateKey === date('Y-m-d'));
+
+        // For today: bucket the cache key per-minute so it reuses cache within the same minute
+        // For past dates: use exact time range as key (permanent archive, never changes)
+        $cacheKeyPayload = $isToday ? "{$dateKey}_" . date('YmdHi') : md5($time1 . $time2);
+        $cacheKey = "foxlogger_history_{$imei}_{$cacheKeyPayload}";
 
         if (Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
         }
 
-        $dateKey = date('Y-m-d', strtotime($time1));
-        $isToday = ($dateKey === date('Y-m-d'));
-
-        // Check local DB first for ALL dates (including today) — DB has granular 10-second data
-        // For today: DB may already have data synced from live position polling
-        // For past dates: DB has permanent archived data
+        // Check local DB first for ALL dates (including today) — DB has granular data
+        // For past dates: DB has permanent archived data — always served from DB instantly
+        // For today: check freshness — if last record is older than 3 minutes, bypass and re-fetch from API
         $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
             ->whereBetween('logged_at', [$time1, $time2])
             ->orderBy('logged_at', 'asc')
             ->get();
 
         if ($dbLogs->count() > 0) {
+            // For today's data: check if the DB is stale (last point > 3 minutes ago)
+            if ($isToday) {
+                $newestLog = $dbLogs->last();
+                $ageInSeconds = now('Asia/Jakarta')->diffInSeconds($newestLog->logged_at);
+                if ($ageInSeconds > 180) {
+                    // DB data is stale — skip and fetch fresh from Foxlogger API below
+                    Log::info("GpsTelemetryLog stale for {$imei}: last point {$ageInSeconds}s ago. Re-fetching from API.");
+                    goto fetchFromApi;
+                }
+            }
+
             $formattedFromDb = $dbLogs->map(function ($log) {
                 return [
                     'time' => $log->logged_at->format('Y-m-d H:i:s'),
@@ -327,11 +341,13 @@ class FoxloggerService
                 ];
             })->toArray();
 
-            // Short TTL for today (refreshes frequently), long for past (permanent)
+            // Short TTL for today, long for past dates (permanent archive)
             $ttl = $isToday ? now()->addMinutes(2) : now()->addHours(6);
             Cache::put($cacheKey, $formattedFromDb, $ttl);
             return $formattedFromDb;
         }
+
+        fetchFromApi:
 
         $accounts = $this->getAllAccountCredentials();
 

@@ -136,6 +136,7 @@ export default function ReportDetail({
                 truck_id: selectedTruck,
                 date_from: dateFrom,
                 date_to: dateTo,
+                tab: activeTab,
             },
             {
                 preserveState: true,

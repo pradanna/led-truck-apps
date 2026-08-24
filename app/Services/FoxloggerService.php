@@ -218,21 +218,78 @@ class FoxloggerService
             }
         }
 
+    /**
+     * Fetch all registered GPS device objects across all accounts.
+     * Checks Cache (max 1 minute), otherwise fetches fresh from Foxlogger.
+     */
+    public function getDeviceList(bool $forceRefresh = false): array
+    {
+        $cacheKey = 'foxlogger_devices_list_combined';
+        $cached = Cache::get($cacheKey);
+        $cacheAge = Cache::get("{$cacheKey}_time", 0);
+
+        if (!$forceRefresh && !empty($cached) && (time() - $cacheAge < 60)) {
+            return $cached;
+        }
+
+        $accounts = $this->getAllAccountCredentials();
+        $combinedDevices = [];
+
+        foreach ($accounts as $key => $cred) {
+            $session = $this->getValidSessionForAccount($key);
+            if (!$session || empty($session['user_id'])) {
+                continue;
+            }
+
+            try {
+                $response = Http::timeout(3)
+                    ->withToken($session['access_token'])
+                    ->withoutVerifying()
+                    ->get("{$this->baseUrl}/web-tracker-staging/devices/{$session['user_id']}");
+
+                if ($response->status() === 401) {
+                    $session = $this->refreshTokenForAccount($key);
+                    if ($session) {
+                        $response = Http::timeout(3)
+                            ->withToken($session['access_token'])
+                            ->withoutVerifying()
+                            ->get("{$this->baseUrl}/web-tracker-staging/devices/{$session['user_id']}");
+                    }
+                }
+
+                if ($response->successful()) {
+                    $devices = $response->json()['data'] ?? [];
+                    foreach ($devices as $dev) {
+                        $dev['account_key'] = $key;
+                        $combinedDevices[] = $dev;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Non-blocking fail-fast
+            }
+        }
+
         if (!empty($combinedDevices)) {
-            Cache::put('foxlogger_devices_list_combined', $combinedDevices, now()->addMinutes(5));
+            Cache::put($cacheKey, $combinedDevices, now()->addMinutes(5));
+            Cache::put("{$cacheKey}_time", time(), now()->addMinutes(5));
             return $combinedDevices;
         }
 
-        return Cache::get('foxlogger_devices_list_combined', []);
+        return $cached ?: [];
     }
 
     /**
-     * Fetch report position across all accounts with 3-minute Cache.
+     * Fetch report position across all accounts.
+     * If data in cache is older than 1 minute (60s), check DB or fetch fresh from Foxlogger.
      */
     public function getReportPosition(bool $forceRefresh = false): array
     {
-        if (!$forceRefresh && Cache::has('foxlogger_positions_report_combined')) {
-            return Cache::get('foxlogger_positions_report_combined');
+        $cacheKey = 'foxlogger_positions_report_combined';
+        $cached = Cache::get($cacheKey);
+        $cacheAge = Cache::get("{$cacheKey}_time", 0);
+
+        if (!$forceRefresh && !empty($cached) && (time() - $cacheAge < 60)) {
+            return $cached;
         }
 
         $accounts = $this->getAllAccountCredentials();
@@ -245,7 +302,7 @@ class FoxloggerService
             }
 
             try {
-                $response = Http::timeout(1)
+                $response = Http::timeout(3)
                     ->withToken($session['access_token'])
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
@@ -253,7 +310,7 @@ class FoxloggerService
                 if ($response->status() === 401) {
                     $session = $this->refreshTokenForAccount($key);
                     if ($session) {
-                        $response = Http::timeout(1)
+                        $response = Http::timeout(3)
                             ->withToken($session['access_token'])
                             ->withoutVerifying()
                             ->get("{$this->baseUrl}/web-tracker-staging/report-position/{$session['user_id']}?status=MOVE,PARK,OFF,MISS");
@@ -282,11 +339,43 @@ class FoxloggerService
         }
 
         if (!empty($combinedPositions)) {
-            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinutes(5));
+            Cache::put($cacheKey, $combinedPositions, now()->addMinutes(5));
+            Cache::put("{$cacheKey}_time", time(), now()->addMinutes(5));
             return $combinedPositions;
         }
 
-        return Cache::get('foxlogger_positions_report_combined', []);
+        // If Foxlogger API was unreachable, reconstruct current positions from latest Database logs
+        $dbPositions = [];
+        $targetImeis = [
+            '0356153590691330' => 'Truk LED 01 (B 9731 JXS)',
+            '0866833070213829' => 'Truk LED 02 (B 9729 JXS)',
+        ];
+
+        foreach ($targetImeis as $imei => $defaultPlate) {
+            $latest = \App\Models\GpsTelemetryLog::where('imei', $imei)
+                ->orderBy('logged_at', 'desc')
+                ->first();
+
+            if ($latest) {
+                $dbPositions[] = [
+                    'imei' => $latest->imei,
+                    'unit' => $latest->truck_plate ?: $defaultPlate,
+                    'lo_lat' => (string)$latest->latitude,
+                    'lo_long' => (string)$latest->longitude,
+                    'Speed' => (int)$latest->speed,
+                    'status' => $latest->status,
+                    'engi' => $latest->engine_status,
+                    'address' => $latest->address,
+                    'last_upd' => $latest->logged_at->format('Y-m-d H:i:s'),
+                ];
+            }
+        }
+
+        if (!empty($dbPositions)) {
+            return $dbPositions;
+        }
+
+        return $cached ?: [];
     }
 
     public function getReportHistory(string $imei, ?string $time1 = null, ?string $time2 = null): array

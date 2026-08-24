@@ -195,12 +195,14 @@ class ReportController extends Controller
         }
 
         // 3. Fetch Real GPS Data & Calculate Trip Metrics (instant cache on page view)
-        $gpsPositions = $isExport
-            ? $this->foxlogger->getReportPosition()
-            : Cache::get('foxlogger_positions_report_combined', []);
+        // 3. Fetch Real GPS Data & Calculate Trip Metrics (Check DB first, fallback to Foxlogger)
+        // Ensure fresh data: Check Cache, then DB, then live Foxlogger API
+        $gpsPositions = $isExport 
+            ? $this->foxlogger->getReportPosition(true)
+            : $this->foxlogger->getReportPosition();
         $gpsDevices = $isExport
-            ? $this->foxlogger->getDeviceList()
-            : Cache::get('foxlogger_devices_list_combined', []);
+            ? $this->foxlogger->getDeviceList(true)
+            : $this->foxlogger->getDeviceList();
 
         $time1 = $dateFrom . ' 00:00:00';
         $time2 = $dateTo . ' 23:59:59';
@@ -209,6 +211,23 @@ class ReportController extends Controller
         $allSpeeds = [];
         $maxRecordedSpeed = 0.0;
         $gpsHistoryLogs = [];
+
+        // Define known truck devices mapping
+        $targetDevices = [];
+        if ($truckFilter === 'all') {
+            $targetDevices = [
+                '0356153590691330' => 'Truk LED 01 (B 9731 JXS)',
+                '0866833070213829' => 'Truk LED 02 (B 9729 JXS)',
+            ];
+        } elseif ($truckFilter === 'truck_1') {
+            $targetDevices = [
+                '0356153590691330' => 'Truk LED 01 (B 9731 JXS)',
+            ];
+        } elseif ($truckFilter === 'truck_2') {
+            $targetDevices = [
+                '0866833070213829' => 'Truk LED 02 (B 9729 JXS)',
+            ];
+        }
 
         $filteredPositions = [];
         foreach ($gpsPositions as $pos) {
@@ -231,54 +250,57 @@ class ReportController extends Controller
                 'speed' => ($pos['Speed'] ?? $pos['speed'] ?? 0) . ' km/h',
                 'status' => ($pos['status'] ?? 'MOVE') === 'MOVE' ? 'Bergerak (Aktif)' : 'Standby (OFF)',
             ];
+        }
 
-            if (!empty($imei)) {
-                // Always calculate trip metrics for page view AND export
-                $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
-                $totalRealDistanceKm += $metrics['distance_km'];
-                if ($metrics['avg_speed'] > 0) {
-                    $allSpeeds[] = $metrics['avg_speed'];
-                }
-                if ($metrics['max_speed'] > $maxRecordedSpeed) {
-                    $maxRecordedSpeed = $metrics['max_speed'];
-                }
+        // Fallback default position if not returned by live API/cache
+        if (empty($filteredPositions)) {
+            foreach ($targetDevices as $tImei => $tTitle) {
+                // Check latest point from DB
+                $latestDbLog = \App\Models\GpsTelemetryLog::where('imei', $tImei)
+                    ->orderBy('logged_at', 'desc')
+                    ->first();
 
-                // Fetch GPS history logs for GPS tab (always) and export
-                if ($tab === 'gps' || $isExport) {
-                    $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
-                    if (!empty($rawHistory)) {
-                        foreach ($rawHistory as $pt) {
-                            $pt['truck_name'] = $truckTitle;
-                            $pt['imei'] = $imei;
-                            $gpsHistoryLogs[] = $pt;
-                        }
-                    }
+                if ($latestDbLog) {
+                    $filteredPositions[] = [
+                        'device_name' => $latestDbLog->truck_plate ?: $tTitle,
+                        'imei' => $tImei,
+                        'lat' => (string)$latestDbLog->latitude,
+                        'lng' => (string)$latestDbLog->longitude,
+                        'speed' => ((int)$latestDbLog->speed) . ' km/h',
+                        'status' => $latestDbLog->status === 'MOVE' ? 'Bergerak (Aktif)' : 'Standby (OFF)',
+                    ];
+                } else {
+                    $filteredPositions[] = [
+                        'device_name' => $tTitle,
+                        'imei' => $tImei,
+                        'lat' => '-6.2524',
+                        'lng' => '106.6193',
+                        'speed' => '0 km/h',
+                        'status' => 'Standby (OFF)',
+                    ];
                 }
             }
         }
 
-        if (empty($filteredPositions)) {
-            $defaultImei = '0356153590691330';
-            $truckTitle = 'Truk LED 01 (B 9731 JXS)';
-            $filteredPositions = [
-                [
-                    'device_name' => $truckTitle,
-                    'imei' => $defaultImei,
-                    'lat' => '-6.2524',
-                    'lng' => '106.6193',
-                    'speed' => '0 km/h',
-                    'status' => 'Standby (OFF)',
-                ]
-            ];
+        // Always query history logs and metrics across all targeted device IMEIs (Check DB first, then Foxlogger)
+        foreach ($targetDevices as $imei => $truckTitle) {
+            // 1. Calculate Metrics (FoxloggerService calculateTripMetrics checks DB first!)
+            $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
+            $totalRealDistanceKm += $metrics['distance_km'];
+            if ($metrics['avg_speed'] > 0) {
+                $allSpeeds[] = $metrics['avg_speed'];
+            }
+            if ($metrics['max_speed'] > $maxRecordedSpeed) {
+                $maxRecordedSpeed = $metrics['max_speed'];
+            }
 
-            if ($truckFilter === 'all' || $truckFilter === 'truck_1') {
-                $metrics = $this->foxlogger->calculateTripMetrics($defaultImei, $time1, $time2);
-                $totalRealDistanceKm = $metrics['distance_km'];
-                if ($metrics['avg_speed'] > 0) {
-                    $allSpeeds[] = $metrics['avg_speed'];
-                }
-                if ($metrics['max_speed'] > $maxRecordedSpeed) {
-                    $maxRecordedSpeed = $metrics['max_speed'];
+            // 2. Fetch GPS history checkpoints (FoxloggerService getReportHistory checks DB first!)
+            $rawHistory = $this->foxlogger->getReportHistory($imei, $time1, $time2);
+            if (!empty($rawHistory)) {
+                foreach ($rawHistory as $pt) {
+                    $pt['truck_name'] = $truckTitle;
+                    $pt['imei'] = $imei;
+                    $gpsHistoryLogs[] = $pt;
                 }
             }
         }
@@ -410,7 +432,7 @@ class ReportController extends Controller
             'trucks' => [
                 ['id' => 'all', 'name' => 'Semua Armada Truk'],
                 ['id' => 'truck_1', 'name' => 'Truk LED 01 (B 9731 JXS)'],
-                ['id' => 'truck_2', 'name' => 'Truk LED 02 (B 9142 SXZ)'],
+                ['id' => 'truck_2', 'name' => 'Truk LED 02 (B 9729 JXS)'],
             ]
         ];
     }
@@ -427,6 +449,7 @@ class ReportController extends Controller
                 'truck_id' => $data['truckFilter'],
                 'date_from' => $data['dateFrom'],
                 'date_to' => $data['dateTo'],
+                'tab' => $data['tab'],
             ],
             'summaryKPI' => $data['summaryKPI'],
             'trafficData' => $data['trafficData'],

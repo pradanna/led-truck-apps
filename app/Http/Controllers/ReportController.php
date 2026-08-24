@@ -210,6 +210,8 @@ class ReportController extends Controller
         $totalRealDistanceKm = 0.0;
         $allSpeeds = [];
         $maxRecordedSpeed = 0.0;
+        $totalEngineSeconds = 0;
+        $totalIdleSeconds = 0;
         $gpsHistoryLogs = [];
 
         // Define known truck devices mapping
@@ -287,6 +289,8 @@ class ReportController extends Controller
             // 1. Calculate Metrics (FoxloggerService calculateTripMetrics checks DB first!)
             $metrics = $this->foxlogger->calculateTripMetrics($imei, $time1, $time2);
             $totalRealDistanceKm += $metrics['distance_km'];
+            $totalEngineSeconds += ($metrics['engine_seconds'] ?? 0);
+            $totalIdleSeconds += ($metrics['idle_seconds'] ?? 0);
             if ($metrics['avg_speed'] > 0) {
                 $allSpeeds[] = $metrics['avg_speed'];
             }
@@ -425,8 +429,12 @@ class ReportController extends Controller
                 'stats' => [
                     'avg_speed' => $avgSpeedFormatted,
                     'max_speed' => $maxSpeedFormatted,
-                    'engine_hours' => ($totalRealDistanceKm > 0 ? round($totalRealDistanceKm / 20, 1) . ' Jam' : '0 Jam'),
-                    'idle_time' => count($filteredPositions) > 0 ? 'Aktif Terhubung' : 'Offline',
+                    'engine_hours' => $totalEngineSeconds > 0 
+                        ? (round($totalEngineSeconds / 3600, 1) . ' Jam (' . round($totalEngineSeconds / 60) . 'm)') 
+                        : '0 Jam',
+                    'idle_time' => $totalIdleSeconds > 0 
+                        ? (round($totalIdleSeconds / 3600, 1) . ' Jam') 
+                        : (count($filteredPositions) > 0 ? '0 Jam' : 'Offline'),
                 ],
             ],
             'trucks' => [

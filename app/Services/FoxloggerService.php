@@ -521,11 +521,39 @@ class FoxloggerService
 
             $avgSpeed = $dbAgg->moving_avg_speed ? round((float)$dbAgg->moving_avg_speed, 1) : 0.0;
 
+            // Calculate real engine ON duration and Idle duration from log timeline
+            $allPoints = \App\Models\GpsTelemetryLog::where('imei', $imei)
+                ->whereBetween('logged_at', [$time1, $time2])
+                ->orderBy('logged_at', 'asc')
+                ->select('logged_at', 'speed', 'status', 'engine_status')
+                ->get();
+
+            $engineOnSeconds = 0;
+            $idleSeconds = 0;
+
+            for ($i = 0; $i < $allPoints->count() - 1; $i++) {
+                $p1 = $allPoints[$i];
+                $p2 = $allPoints[$i + 1];
+                $diff = $p2->logged_at->diffInSeconds($p1->logged_at);
+
+                // Ignore long offline gaps (> 30 mins)
+                if ($diff > 0 && $diff <= 1800) {
+                    $isMovingOrEngineOn = ($p1->speed > 0) || (strtoupper($p1->engine_status) === 'ON') || (strtoupper($p1->status) === 'MOVE');
+                    if ($isMovingOrEngineOn) {
+                        $engineOnSeconds += $diff;
+                    } else {
+                        $idleSeconds += $diff;
+                    }
+                }
+            }
+
             return [
                 'distance_km' => $distFromMill > 0 ? $distFromMill : round(($avgSpeed ?: 15) * 0.8, 2),
                 'avg_speed' => $avgSpeed,
                 'max_speed' => round((float)$dbAgg->max_speed, 1),
                 'points_count' => (int)$dbAgg->total_points,
+                'engine_seconds' => $engineOnSeconds,
+                'idle_seconds' => $idleSeconds,
             ];
         }
 

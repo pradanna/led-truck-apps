@@ -67,8 +67,8 @@ class GpsTrackingController extends Controller
         $date = $request->query('date', date('Y-m-d'));
         $history = $this->foxlogger->getGpsHistory($imei, $date);
 
-        // Smart Server-Side Downsampling / Compression (5-Minute Sampling)
-        // Reduces raw telemetry points to 5-minute checkpoints (Ultra-light, fast payload)
+        // Smart Server-Side Downsampling / Compression (1-Minute Sampling)
+        // Reduces raw telemetry points to 1-minute checkpoints
         $sampledHistory = [];
         $lastTimeSec = 0;
         $prevLat = null;
@@ -94,8 +94,8 @@ class GpsTrackingController extends Controller
 
             $timeDiff = abs($currentSec - $lastTimeSec);
 
-            // Sample checkpoint every 5 minutes (300 seconds)
-            if ($timeDiff >= 300) {
+            // Sample checkpoint every 1 minute (60 seconds)
+            if ($timeDiff >= 60) {
                 $sampledHistory[] = $pt;
                 $lastTimeSec = $currentSec;
                 $prevLat = $lat;

@@ -469,9 +469,16 @@ class FoxloggerService
         $time2 = $time2 ?? date('Y-m-d 23:59:59');
 
         // 1. Ultra-fast check in local DB
+        // Calculate metrics: only average speed when truck is actually moving (speed > 0 and not OFF)
         $dbAgg = \App\Models\GpsTelemetryLog::where('imei', $imei)
             ->whereBetween('logged_at', [$time1, $time2])
-            ->selectRaw('COUNT(*) as total_points, MAX(speed) as max_speed, AVG(speed) as avg_speed, MIN(mileage_km) as min_mill, MAX(mileage_km) as max_mill')
+            ->selectRaw('
+                COUNT(*) as total_points,
+                MAX(speed) as max_speed,
+                AVG(CASE WHEN speed > 0 AND UPPER(status) != "OFF" THEN speed ELSE NULL END) as moving_avg_speed,
+                MIN(mileage_km) as min_mill,
+                MAX(mileage_km) as max_mill
+            ')
             ->first();
 
         if ($dbAgg && $dbAgg->total_points > 1) {
@@ -479,9 +486,11 @@ class FoxloggerService
                 ? round($dbAgg->max_mill - $dbAgg->min_mill, 2)
                 : 0.0;
 
+            $avgSpeed = $dbAgg->moving_avg_speed ? round((float)$dbAgg->moving_avg_speed, 1) : 0.0;
+
             return [
-                'distance_km' => $distFromMill > 0 ? $distFromMill : round(($dbAgg->avg_speed ?: 15) * 0.8, 2),
-                'avg_speed' => round((float)$dbAgg->avg_speed, 1),
+                'distance_km' => $distFromMill > 0 ? $distFromMill : round(($avgSpeed ?: 15) * 0.8, 2),
+                'avg_speed' => $avgSpeed,
                 'max_speed' => round((float)$dbAgg->max_speed, 1),
                 'points_count' => (int)$dbAgg->total_points,
             ];
@@ -535,7 +544,8 @@ class FoxloggerService
             }
 
             $speed = (float)($p1['Speed'] ?? $p1['speed'] ?? 0);
-            if ($speed > 0) {
+            $pStatus = strtoupper(trim($p1['status'] ?? ''));
+            if ($speed > 0 && $pStatus !== 'OFF') {
                 $speeds[] = $speed;
                 if ($speed > $maxSpeed) {
                     $maxSpeed = $speed;

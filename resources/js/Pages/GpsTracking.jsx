@@ -134,7 +134,9 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       const controller = new AbortController();
       setIsLoadingHistory(true);
 
-      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}&refresh=1&_t=${Date.now()}`, { signal: controller.signal })
+      const url = `/api/gps-history/${activeTruck.imei}?date=${selectedDate}${refreshTrigger > 0 ? '&refresh=1&_t=' + refreshTrigger : ''}`;
+
+      fetch(url, { signal: controller.signal })
         .then(res => res.json())
         .then(data => {
           if (data.success && Array.isArray(data.data) && data.data.length > 0) {

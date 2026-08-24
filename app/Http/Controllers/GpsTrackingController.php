@@ -76,9 +76,9 @@ class GpsTrackingController extends Controller
     public function getGpsHistory(Request $request, string $imei)
     {
         $date = $request->query('date', date('Y-m-d'));
-        $forceRefresh = $request->boolean('refresh') || $request->has('_t');
+        $forceRefresh = $request->boolean('refresh');
 
-        // 1. Direct fetch from Local Database first (Fast & Resilient)
+        // 1. Direct fetch from Local Database (Ultra fast <10ms)
         $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
             ->where('log_date', $date)
             ->orderBy('logged_at', 'asc')
@@ -93,6 +93,7 @@ class GpsTrackingController extends Controller
                     'lat' => (string)$log->latitude,
                     'long' => (string)$log->longitude,
                     'Speed' => (int)$log->speed,
+                    'speed' => (int)$log->speed,
                     'addr' => $log->address,
                     'status' => $log->status,
                     'engi' => $log->engine_status,
@@ -102,7 +103,7 @@ class GpsTrackingController extends Controller
                 ];
             })->toArray();
         } else {
-            // If DB is empty or force refresh requested, pull from Foxlogger API & auto-save to DB
+            // Only query external API if DB is totally empty or user explicitly clicked Refresh GPS
             $history = $this->foxlogger->getGpsHistory($imei, $date, $forceRefresh);
         }
 

@@ -333,7 +333,7 @@ class FoxloggerService
         return $cached ?: [];
     }
 
-    public function getReportHistory(string $imei, ?string $time1 = null, ?string $time2 = null): array
+    public function getReportHistory(string $imei, ?string $time1 = null, ?string $time2 = null, bool $forceRefresh = false): array
     {
         date_default_timezone_set('Asia/Jakarta');
         $time1 = $time1 ?? date('Y-m-d 00:00:00');
@@ -352,8 +352,12 @@ class FoxloggerService
         $cacheKeyPayload = $isToday ? "{$dateKey}_" . date('YmdHi') : md5($time1 . $time2);
         $cacheKey = "foxlogger_history_{$imei}_{$cacheKeyPayload}";
 
-        if (Cache::has($cacheKey)) {
+        if (!$forceRefresh && Cache::has($cacheKey)) {
             return Cache::get($cacheKey);
+        }
+
+        if ($forceRefresh) {
+            goto fetchFromApi;
         }
 
         // Check local DB first for ALL dates (including today)
@@ -471,13 +475,13 @@ class FoxloggerService
         return [];
     }
 
-    public function getGpsHistory(string $imei, ?string $date = null): array
+    public function getGpsHistory(string $imei, ?string $date = null, bool $forceRefresh = false): array
     {
         $date = $date ?? date('Y-m-d');
         $time1 = "{$date} 00:00:00";
         $time2 = ($date === date('Y-m-d')) ? date('Y-m-d H:i:s') : "{$date} 23:59:59";
 
-        return $this->getReportHistory($imei, $time1, $time2);
+        return $this->getReportHistory($imei, $time1, $time2, $forceRefresh);
     }
 
     /**

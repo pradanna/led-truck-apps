@@ -134,7 +134,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
       const controller = new AbortController();
       setIsLoadingHistory(true);
 
-      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}&_t=${Date.now()}`, { signal: controller.signal })
+      fetch(`/api/gps-history/${activeTruck.imei}?date=${selectedDate}&refresh=1&_t=${Date.now()}`, { signal: controller.signal })
         .then(res => res.json())
         .then(data => {
           if (data.success && Array.isArray(data.data) && data.data.length > 0) {
@@ -195,8 +195,10 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
         if (data.devices && data.devices.length > 0) {
           setCurrentLiveDevices(data.devices);
         }
-        // Trigger history reload
-        setRefreshTrigger(prev => prev + 1);
+        // Reset selected checkpoint so map focuses on newest point
+        setSelectedCheckpoint(null);
+        // Trigger history reload with cache bypass
+        setRefreshTrigger(Date.now());
         setSyncMessage(`Berhasil diperbarui pukul ${data.synced_at || 'sekarang'}`);
         setTimeout(() => setSyncMessage(''), 3500);
       } else {

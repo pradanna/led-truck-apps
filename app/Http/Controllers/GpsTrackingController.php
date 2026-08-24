@@ -76,7 +76,8 @@ class GpsTrackingController extends Controller
     public function getGpsHistory(Request $request, string $imei)
     {
         $date = $request->query('date', date('Y-m-d'));
-        $history = $this->foxlogger->getGpsHistory($imei, $date);
+        $forceRefresh = $request->boolean('refresh') || $request->has('_t');
+        $history = $this->foxlogger->getGpsHistory($imei, $date, $forceRefresh);
 
         // Smart Server-Side Downsampling / Compression (1-Minute Sampling)
         // Reduces raw telemetry points to 1-minute checkpoints

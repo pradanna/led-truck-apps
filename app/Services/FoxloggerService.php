@@ -282,7 +282,7 @@ class FoxloggerService
         }
 
         if (!empty($combinedPositions)) {
-            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinutes(3));
+            Cache::put('foxlogger_positions_report_combined', $combinedPositions, now()->addMinutes(5));
             return $combinedPositions;
         }
 
@@ -340,7 +340,7 @@ class FoxloggerService
             }
 
             try {
-                $response = Http::timeout(4)
+                $response = Http::timeout(15) // extended for full-day history pull
                     ->withToken($session['access_token'])
                     ->withoutVerifying()
                     ->get("{$this->baseUrl}/web-tracker-staging/report-history", [
@@ -353,7 +353,7 @@ class FoxloggerService
                 if ($response->status() === 401) {
                     $session = $this->refreshTokenForAccount($key);
                     if ($session) {
-                        $response = Http::timeout(4)
+                        $response = Http::timeout(15) // extended for full-day history pull
                             ->withToken($session['access_token'])
                             ->withoutVerifying()
                             ->get("{$this->baseUrl}/web-tracker-staging/report-history", [

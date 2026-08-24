@@ -345,7 +345,7 @@
             </tr>
         </table>
 
-        <div class="section-heading">Riwayat Checkpoint Perjalanan Armada (Interval 15 Menit)</div>
+        <div class="section-heading">Riwayat Checkpoint Perjalanan Armada (Interval 5 Menit)</div>
         @forelse($gpsData['groupedLogs'] ?? [] as $dayGroup)
             <div style="background-color: #f1f5f9; padding: 6px 10px; font-weight: bold; font-size: 11px; margin-top: 10px; border-left: 3px solid #2563eb; color: #1e293b;">
                 Tanggal: {{ $dayGroup['formatted_date'] }} ({{ count($dayGroup['logs']) }} Checkpoint)

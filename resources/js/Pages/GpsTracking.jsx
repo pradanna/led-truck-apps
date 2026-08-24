@@ -261,7 +261,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           {/* UNIFIED TOP NAVBAR */}
           <Navbar 
-            title="Peta GPS OpenStreetMap" 
+            title="Peta GPS Armada" 
             subtitle="Monitoring lokasi real-time dan histori rute armada GPS Foxlogger."
             statusBadge={
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
@@ -328,7 +328,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                 <button
                   onClick={handleExportExcel}
                   className="py-2 px-3.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="Ekspor Riwayat Rute ke Excel / CSV (Interval 15 Menit)"
+                  title="Ekspor Riwayat Rute ke Excel / CSV (Interval 5 Menit)"
                 >
                   <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                   <span>Ekspor Excel (.CSV)</span>
@@ -337,7 +337,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                 <button
                   onClick={handleExportPdf}
                   className="py-2 px-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-xs"
-                  title="Ekspor Dokumen Laporan ke PDF (Interval 15 Menit)"
+                  title="Ekspor Dokumen Laporan ke PDF (Interval 5 Menit)"
                 >
                   <FileText className="w-4 h-4 text-white" />
                   <span>Cetak / PDF</span>
@@ -345,15 +345,15 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
               </div>
             </div>
 
-            {/* GPS TRACKING REAL OPENSTREETMAP */}
+            {/* GPS TRACKING REAL MAP */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Left Col (2 Span): Real OpenStreetMap Display */}
+              {/* Left Col (2 Span): Real Map Display */}
               <div className="lg:col-span-2 space-y-4">
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-4 relative overflow-hidden">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Navigation className="w-5 h-5 text-emerald-600" />
-                      <h3 className="font-bold text-slate-900 text-base">Peta OpenStreetMap - Tanggal {selectedDate}</h3>
+                      <h3 className="font-bold text-slate-900 text-base">Peta Rute GPS - Tanggal {selectedDate}</h3>
                     </div>
 
                     <div className="flex items-center gap-3 text-xs font-mono">
@@ -363,7 +363,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                         </span>
                       ) : realHistoryPoints.length > 0 ? (
                         <span className="px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1.5 font-bold">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> OpenStreetMap Active ({realHistoryPoints.length} Titik / 15m Sampling)
+                          <CheckCircle2 className="w-3.5 h-3.5" /> GPS Aktif ({realHistoryPoints.length} Titik / 5m Sampling)
                         </span>
                       ) : (
                         <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 flex items-center gap-1.5 font-bold">
@@ -519,7 +519,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                 <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100 space-y-3">
                   <h3 className="font-bold text-slate-900 text-sm flex items-center justify-between">
                     <span>Riwayat Rute ({selectedDate})</span>
-                    <span className="text-[10px] text-emerald-600 font-bold">{realHistoryPoints.length} Checkpoint (15m)</span>
+                    <span className="text-[10px] text-emerald-600 font-bold">{realHistoryPoints.length} Checkpoint (5m)</span>
                   </h3>
 
                   <p className="text-[11px] text-slate-500">

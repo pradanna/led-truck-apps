@@ -828,10 +828,10 @@ export default function ReportDetail({
                                 </div>
                             </div>
 
-                            {/* 15-Minute Interval Checkpoints Grouped By Date */}
+                            {/* 5-Minute Interval Checkpoints Grouped By Date */}
                             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs space-y-6">
                                 <div>
-                                    <h3 className="font-bold text-slate-900 text-sm">Riwayat Checkpoint Perjalanan (Interval 15 Menit)</h3>
+                                    <h3 className="font-bold text-slate-900 text-sm">Riwayat Checkpoint Perjalanan (Interval 5 Menit)</h3>
                                     <p className="text-xs text-slate-500">Log titik jelajah armada yang dikelompokkan berdasarkan tanggal</p>
                                 </div>
 
@@ -845,7 +845,7 @@ export default function ReportDetail({
                                                     <span className="text-[10px] text-slate-500 font-mono">({group.date})</span>
                                                 </div>
                                                 <span className="text-[11px] font-mono font-bold px-2.5 py-0.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-full">
-                                                    {group.logs.length} Checkpoint (15m)
+                                                    {group.logs.length} Checkpoint (5m)
                                                 </span>
                                             </div>
 

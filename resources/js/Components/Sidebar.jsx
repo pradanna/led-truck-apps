@@ -12,10 +12,11 @@ import {
     Radio,
     Settings,
     Shield,
-    LogOut
+    LogOut,
+    X
 } from 'lucide-react';
 
-export default function Sidebar({ activeMenu = 'dashboard' }) {
+export default function Sidebar({ activeMenu = 'dashboard', isOpen = false, onClose = () => {} }) {
     const { auth } = usePage().props;
     const user = auth?.user || { role: 'admin', isAdmin: true };
     const isAdmin = user.isAdmin ?? (user.role === 'admin');
@@ -98,77 +99,102 @@ export default function Sidebar({ activeMenu = 'dashboard' }) {
     const menuItems = allMenuItems.filter(item => !item.adminOnly || isAdmin);
 
     return (
-        <aside className="w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0 border-r border-slate-200 min-h-screen select-none z-20 shadow-xs">
-            <div className="flex-1 overflow-y-auto">
-                {/* Brand Logo & Header */}
-                <div className="p-5 border-b border-slate-100 flex items-center justify-center">
-                    <img
-                        src="/images/local/logo-yousee-panjang.png"
-                        alt="Yousee Logo"
-                        className="h-10 w-auto max-w-[200px] object-contain"
-                        onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = '/images/local/logo-yousee2.png';
-                        }}
-                    />
-                </div>
+        <>
+            {/* Mobile Backdrop Overlay */}
+            {isOpen && (
+                <div 
+                    onClick={onClose} 
+                    className="fixed inset-0 bg-slate-900/50 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+                />
+            )}
 
-                {/* Navigation Menu Links */}
-                <div className="p-3.5 space-y-1">
-                    <div className="px-3 py-2 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                        Menu Navigasi
+            <aside className={`
+                fixed lg:static inset-y-0 left-0 z-50
+                w-64 bg-white text-slate-700 flex flex-col justify-between shrink-0 border-r border-slate-200 min-h-screen select-none shadow-xl lg:shadow-xs
+                transition-transform duration-300 ease-in-out
+                ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+            `}>
+                <div className="flex-1 overflow-y-auto">
+                    {/* Brand Logo & Header */}
+                    <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+                        <img
+                            src="/images/local/logo-yousee-panjang.png"
+                            alt="Yousee Logo"
+                            className="h-9 sm:h-10 w-auto max-w-[170px] sm:max-w-[200px] object-contain"
+                            onError={(e) => {
+                                e.target.onerror = null;
+                                e.target.src = '/images/local/logo-yousee2.png';
+                            }}
+                        />
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="lg:hidden p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 cursor-pointer"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
                     </div>
 
-                    {menuItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = optimisticActiveMenu === item.id;
+                    {/* Navigation Menu Links */}
+                    <div className="p-3.5 space-y-1">
+                        <div className="px-3 py-2 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
+                            Menu Navigasi
+                        </div>
 
-                        return (
-                            <Link
-                                key={item.id}
-                                href={item.href}
-                                preserveState={false}
-                                preserveScroll={false}
-                                prefetch
-                                cacheFor="1m"
-                                onClick={() => setOptimisticActiveMenu(item.id)}
-                                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all ${
-                                    isActive
-                                        ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30 font-bold'
-                                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                                }`}
-                            >
-                                <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                                <span className="truncate">{item.label}</span>
-                            </Link>
-                        );
-                    })}
+                        {menuItems.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = optimisticActiveMenu === item.id;
+
+                            return (
+                                <Link
+                                    key={item.id}
+                                    href={item.href}
+                                    preserveState={false}
+                                    preserveScroll={false}
+                                    prefetch
+                                    cacheFor="1m"
+                                    onClick={() => {
+                                        setOptimisticActiveMenu(item.id);
+                                        onClose();
+                                    }}
+                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-xl font-semibold text-xs transition-all ${
+                                        isActive
+                                            ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30 font-bold'
+                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                                    <span className="truncate">{item.label}</span>
+                                </Link>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
 
-            {/* Sidebar Footer Account Badge & Logout Button */}
-            <div className="p-4 border-t border-slate-100 bg-slate-50/70">
-                <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between shadow-xs gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
-                        <div className="text-xs truncate">
-                            <div className="font-bold text-slate-900 truncate">{user.name || 'User'}</div>
-                            <div className="text-[10px] text-slate-400 font-mono truncate">
-                                {isAdmin ? 'Role: Administrator' : `Exp: ${user.expires_at || '-'}`}
+                {/* Sidebar Footer Account Badge & Logout Button */}
+                <div className="p-4 border-t border-slate-100 bg-slate-50/70">
+                    <div className="p-2.5 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between shadow-xs gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-blue-500' : 'bg-emerald-500'}`}></div>
+                            <div className="text-xs truncate">
+                                <div className="font-bold text-slate-900 truncate">{user.name || 'User'}</div>
+                                <div className="text-[10px] text-slate-400 font-mono truncate">
+                                    {isAdmin ? 'Role: Administrator' : `Exp: ${user.expires_at || '-'}`}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <button
-                        type="button"
-                        onClick={handleLogout}
-                        title="Keluar dari Akun (Logout)"
-                        className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors cursor-pointer shrink-0"
-                    >
-                        <LogOut className="w-4 h-4" />
-                    </button>
+                        <button
+                            type="button"
+                            onClick={handleLogout}
+                            title="Keluar dari Akun (Logout)"
+                            className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors cursor-pointer shrink-0"
+                        >
+                            <LogOut className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </aside>
+            </aside>
+        </>
     );
 }

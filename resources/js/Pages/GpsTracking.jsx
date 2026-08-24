@@ -260,13 +260,19 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
 
 
 
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
   return (
     <>
       <Head title={`GPS Tracking Armada - LED-FLX Fleet Control`} />
 
       <div className="flex h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden">
-        {/* Unified Sidebar Layout */}
-        <Sidebar activeMenu="gps" />
+        {/* Unified Sidebar Layout with Mobile Drawer */}
+        <Sidebar 
+          activeMenu="gps" 
+          isOpen={isMobileSidebarOpen} 
+          onClose={() => setIsMobileSidebarOpen(false)} 
+        />
 
         {/* Main Content Body */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -274,6 +280,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
           <Navbar 
             title="Peta GPS Armada" 
             subtitle="Monitoring lokasi real-time dan histori rute armada GPS Foxlogger."
+            onMenuClick={() => setIsMobileSidebarOpen(true)}
             statusBadge={
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -283,9 +290,9 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
           />
 
           {/* MAIN SCROLLABLE BODY */}
-          <main className="flex-1 overflow-y-auto p-8 space-y-6">
+          <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
             {/* PAGE FILTERING & EXPORT CONTROLS */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 sm:gap-4">
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 {/* Date Picker Filter */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 flex items-center gap-2 text-xs text-slate-700">
@@ -399,7 +406,7 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
                   </div>
 
                   {/* Real Leaflet Map Container */}
-                  <div className="relative aspect-[16/9] rounded-xl overflow-hidden border border-slate-200 z-10 shadow-inner">
+                  <div className="relative h-[360px] sm:h-auto sm:aspect-[16/9] rounded-xl overflow-hidden border border-slate-200 z-10 shadow-inner">
                     <MapContainer
                       center={[displayLat, displayLng]}
                       zoom={14}

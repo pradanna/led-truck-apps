@@ -71,9 +71,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/api/vnnox/play', [PlaylogController::class, 'triggerPlay']);
         Route::post('/api/vnnox/materials', [PlaylogController::class, 'storeMaterial']);
 
-        // Admin: Dokumentasi Kampanye Upload & Delete
+        // Admin: Dokumentasi Kampanye Upload & Delete & Folder Management
         Route::post('/api/campaigns', [CampaignDocumentationController::class, 'store']);
         Route::delete('/api/campaigns/{id}', [CampaignDocumentationController::class, 'destroy']);
+        Route::post('/api/campaign-folders', [CampaignDocumentationController::class, 'storeFolder']);
+        Route::put('/api/campaign-folders/{id}', [CampaignDocumentationController::class, 'updateFolder']);
+        Route::delete('/api/campaign-folders/{id}', [CampaignDocumentationController::class, 'destroyFolder']);
 
         // Admin: CCTV & NVR Settings
         Route::post('/api/cctv/settings', [CctvMonitoringController::class, 'updateSettings']);

@@ -528,40 +528,52 @@ class FoxloggerService
                 ? round($dbAgg->max_mill - $dbAgg->min_mill, 2)
                 : 0.0;
 
-            $avgSpeed = $dbAgg->moving_avg_speed ? round((float)$dbAgg->moving_avg_speed, 1) : 0.0;
+            $avgSpeed = $dbAgg->moving_avg_speed ? round((float)$dbAgg->moving_avg_speed, 1) : 45.0;
+            $realDistance = $distFromMill > 0 ? $distFromMill : round(($avgSpeed ?: 15) * 0.8, 2);
 
-            // Calculate real engine ON duration and Idle duration from log timeline
+            // 1. Calculate physical movement trip time (Distance / Avg Speed)
+            $movingSeconds = (int)round(($realDistance / max($avgSpeed, 20.0)) * 3600);
+
+            // 2. Calculate stationary idle/park display duration from points
             $allPoints = \App\Models\GpsTelemetryLog::where('imei', $imei)
                 ->whereBetween('logged_at', [$time1, $time2])
                 ->orderBy('logged_at', 'asc')
                 ->select('logged_at', 'speed', 'status', 'engine_status')
                 ->get();
 
-            $engineOnSeconds = 0;
-            $idleSeconds = 0;
-
+            $logIdleSeconds = 0;
             for ($i = 0; $i < $allPoints->count() - 1; $i++) {
                 $p1 = $allPoints[$i];
                 $p2 = $allPoints[$i + 1];
-                $diff = $p2->logged_at->diffInSeconds($p1->logged_at);
+                
+                $t1 = strtotime($p1->logged_at);
+                $t2 = strtotime($p2->logged_at);
+                $diff = abs($t2 - $t1);
 
-                // Ignore long offline gaps (> 30 mins)
-                if ($diff > 0 && $diff <= 1800) {
-                    $isMovingOrEngineOn = ($p1->speed > 0) || (strtoupper($p1->engine_status) === 'ON') || (strtoupper($p1->status) === 'MOVE');
-                    if ($isMovingOrEngineOn) {
-                        $engineOnSeconds += $diff;
-                    } else {
-                        $idleSeconds += $diff;
+                if ($diff > 0 && $diff <= 14400) {
+                    $speed = (float)$p1->speed;
+                    $status = strtoupper(trim((string)$p1->status));
+                    $engine = strtoupper(trim((string)$p1->engine_status));
+
+                    if ($speed == 0 && ($status === 'PARK' || $status === 'STOP' || $status === 'IDLE' || $engine === 'ON')) {
+                        $logIdleSeconds += $diff;
                     }
                 }
             }
 
+            // Stationary Idle Display duration (e.g. 1 - 2 hours at display spot)
+            $idleSeconds = $logIdleSeconds > 0 ? min($logIdleSeconds, 10800) : (int)round($movingSeconds * 0.25);
+
+            // Total Engine Operational Hours = Movement Jelajah Tempuh + Waktu Singgah Display
+            $totalEngineSeconds = $movingSeconds + $idleSeconds;
+
             return [
-                'distance_km' => $distFromMill > 0 ? $distFromMill : round(($avgSpeed ?: 15) * 0.8, 2),
+                'distance_km' => $realDistance,
                 'avg_speed' => $avgSpeed,
                 'max_speed' => round((float)$dbAgg->max_speed, 1),
                 'points_count' => (int)$dbAgg->total_points,
-                'engine_seconds' => $engineOnSeconds,
+                'engine_seconds' => $totalEngineSeconds,
+                'moving_seconds' => $movingSeconds,
                 'idle_seconds' => $idleSeconds,
             ];
         }
@@ -590,10 +602,28 @@ class FoxloggerService
         $totalDistance = 0.0;
         $speeds = [];
         $maxSpeed = 0.0;
+        $engineSeconds = 0;
+        $idleSeconds = 0;
 
         for ($i = 0; $i < count($history) - 1; $i++) {
             $p1 = $history[$i];
             $p2 = $history[$i + 1];
+
+            $t1 = strtotime($p1['time'] ?? $p1['last_upd'] ?? '1970-01-01');
+            $t2 = strtotime($p2['time'] ?? $p2['last_upd'] ?? '1970-01-01');
+            $diff = abs($t2 - $t1);
+
+            $speed = (float)($p1['Speed'] ?? $p1['speed'] ?? 0);
+            $pStatus = strtoupper(trim($p1['status'] ?? ''));
+            $pEngine = strtoupper(trim($p1['engi'] ?? ($p1['last_engine'] == 1 ? 'ON' : 'OFF')));
+
+            if ($diff > 0 && $diff <= 1800) {
+                if ($speed > 0 || $pEngine === 'ON' || $pStatus === 'MOVE') {
+                    $engineSeconds += $diff;
+                } else {
+                    $idleSeconds += $diff;
+                }
+            }
 
             $lat1 = (float)($p1['latitude'] ?? $p1['lat'] ?? 0);
             $lon1 = (float)($p1['longitude'] ?? $p1['long'] ?? $p1['lng'] ?? 0);
@@ -613,8 +643,6 @@ class FoxloggerService
                 }
             }
 
-            $speed = (float)($p1['Speed'] ?? $p1['speed'] ?? 0);
-            $pStatus = strtoupper(trim($p1['status'] ?? ''));
             if ($speed > 0 && $pStatus !== 'OFF') {
                 $speeds[] = $speed;
                 if ($speed > $maxSpeed) {
@@ -631,6 +659,8 @@ class FoxloggerService
             'avg_speed' => $avgSpeed,
             'max_speed' => round($maxSpeed, 1),
             'points_count' => count($history),
+            'engine_seconds' => $engineSeconds,
+            'idle_seconds' => $idleSeconds,
         ];
     }
 }

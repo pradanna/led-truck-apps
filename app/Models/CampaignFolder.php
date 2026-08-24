@@ -5,22 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
-class CampaignDocumentation extends Model
+class CampaignFolder extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'user_id',
-        'folder_id',
-        'title',
-        'campaign_name',
-        'location',
+        'name',
         'event_date',
-        'media_type',
-        'file_path',
-        'thumbnail_path',
-        'notes',
+        'campaign_name',
+        'description',
     ];
 
     protected function casts(): array
@@ -39,10 +35,10 @@ class CampaignDocumentation extends Model
     }
 
     /**
-     * Relationship to the Parent Folder
+     * Relationship to all media documentations inside this folder
      */
-    public function folder(): BelongsTo
+    public function documentations(): HasMany
     {
-        return $this->belongsTo(CampaignFolder::class, 'folder_id');
+        return $this->hasMany(CampaignDocumentation::class, 'folder_id');
     }
 }

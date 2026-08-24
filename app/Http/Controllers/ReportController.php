@@ -396,7 +396,27 @@ class ReportController extends Controller
 
         $truckLabel = 'Semua Armada';
         if ($truckFilter === 'truck_1') $truckLabel = 'Truk LED 01 (B 9731 JXS)';
-        if ($truckFilter === 'truck_2') $truckLabel = 'Truk LED 02 (B 9142 SXZ)';
+        if ($truckFilter === 'truck_2') $truckLabel = 'Truk LED 02 (B 9729 JXS)';
+
+        $engineHoursFormatted = '0 Jam';
+        if ($totalEngineSeconds > 0) {
+            $hours = floor($totalEngineSeconds / 3600);
+            $minutes = round(($totalEngineSeconds % 3600) / 60);
+            $engineHoursFormatted = $hours > 0 ? "{$hours} Jam {$minutes}m" : "{$minutes} Menit";
+        } elseif ($totalRealDistanceKm > 0) {
+            // Backup calculation from distance and average moving speed
+            $estHours = round($totalRealDistanceKm / max(array_sum($allSpeeds) / max(count($allSpeeds), 1), 25), 1);
+            $engineHoursFormatted = "{$estHours} Jam";
+        }
+
+        $idleFormatted = '0 Jam';
+        if ($totalIdleSeconds > 0) {
+            $iHours = floor($totalIdleSeconds / 3600);
+            $iMins = round(($totalIdleSeconds % 3600) / 60);
+            $idleFormatted = $iHours > 0 ? "{$iHours} Jam {$iMins}m" : "{$iMins} Menit";
+        } elseif (count($filteredPositions) > 0) {
+            $idleFormatted = '0 Jam (Bergerak Penuh)';
+        }
 
         return [
             'tab' => $tab,
@@ -429,12 +449,8 @@ class ReportController extends Controller
                 'stats' => [
                     'avg_speed' => $avgSpeedFormatted,
                     'max_speed' => $maxSpeedFormatted,
-                    'engine_hours' => $totalEngineSeconds > 0 
-                        ? (round($totalEngineSeconds / 3600, 1) . ' Jam (' . round($totalEngineSeconds / 60) . 'm)') 
-                        : '0 Jam',
-                    'idle_time' => $totalIdleSeconds > 0 
-                        ? (round($totalIdleSeconds / 3600, 1) . ' Jam') 
-                        : (count($filteredPositions) > 0 ? '0 Jam' : 'Offline'),
+                    'engine_hours' => $engineHoursFormatted,
+                    'idle_time' => $idleFormatted,
                 ],
             ],
             'trucks' => [

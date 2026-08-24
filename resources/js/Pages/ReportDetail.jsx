@@ -168,18 +168,27 @@ export default function ReportDetail({
     const hourlyTraffic = trafficData?.hourly || [];
     const maxHourlyTotal = Math.max(...hourlyTraffic.map(h => h.total), 1);
 
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden font-sans antialiased text-slate-800">
             <Head title="Laporan Detail - LED-FLX Fleet & CCTV" />
 
-            {/* Sidebar Navigation */}
-            <Sidebar activeMenu="laporan" />
+            {/* Sidebar Navigation with Mobile Drawer */}
+            <Sidebar 
+                activeMenu="laporan" 
+                isOpen={isMobileSidebarOpen} 
+                onClose={() => setIsMobileSidebarOpen(false)} 
+            />
 
             {/* Main Content Area */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-                <Navbar title="Laporan Detail Komprehensif" />
+                <Navbar 
+                    title="Laporan Detail Komprehensif" 
+                    onMenuClick={() => setIsMobileSidebarOpen(true)}
+                />
 
-                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6">
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
                     {/* FILTER TOOLBAR */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                         <form onSubmit={handleFilterApply} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end">

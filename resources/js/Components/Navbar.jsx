@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { usePage, router, Link } from '@inertiajs/react';
-import { User, LogOut, ChevronDown, ShieldCheck, Clock, Bell, Calendar, UserCheck, Settings } from 'lucide-react';
+import { User, LogOut, ChevronDown, ShieldCheck, Clock, Bell, Calendar, UserCheck, Settings, Menu } from 'lucide-react';
 
-export default function Navbar({ title, subtitle, statusBadge }) {
+export default function Navbar({ title, subtitle, statusBadge, onMenuClick }) {
     const { auth } = usePage().props;
     const user = auth?.user || { name: 'Super Administrator', email: 'admin@ledflx.com', role: 'admin', isAdmin: true, expires_at: 'Selamanya' };
 
@@ -39,24 +39,34 @@ export default function Navbar({ title, subtitle, statusBadge }) {
     const isAdmin = user.isAdmin ?? (user.role === 'admin');
 
     return (
-        <header className="bg-white border-b border-slate-200 px-8 py-3.5 flex items-center justify-between shrink-0 shadow-xs z-30">
-            {/* BAGIAN KIRI: Page Title & Context */}
-            <div className="flex items-center gap-3">
-                <div>
-                    <div className="flex items-center gap-2">
-                        <h1 className="text-lg font-extrabold text-slate-900 tracking-tight">
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between shrink-0 shadow-xs z-30">
+            {/* BAGIAN KIRI: Mobile Hamburger & Page Title */}
+            <div className="flex items-center gap-3 min-w-0">
+                {onMenuClick && (
+                    <button
+                        type="button"
+                        onClick={onMenuClick}
+                        className="lg:hidden p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200 shrink-0 cursor-pointer"
+                        title="Buka Menu Navigasi"
+                    >
+                        <Menu className="w-5 h-5" />
+                    </button>
+                )}
+                <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <h1 className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight truncate">
                             {title || 'LED-FLX Fleet Control System'}
                         </h1>
                         {statusBadge}
                     </div>
                     {subtitle && (
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">{subtitle}</p>
+                        <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 truncate hidden sm:block">{subtitle}</p>
                     )}
                 </div>
             </div>
 
             {/* BAGIAN KANAN: Realtime Clock & User Account Dropdown */}
-            <div className="flex items-center gap-5">
+            <div className="flex items-center gap-3 sm:gap-5 shrink-0">
                 {/* Realtime Operational Badge */}
                 <div className="hidden md:flex items-center gap-2 text-xs font-mono bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
                     <Clock className="w-3.5 h-3.5 text-blue-600" />

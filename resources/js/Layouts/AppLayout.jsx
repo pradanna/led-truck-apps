@@ -11,10 +11,14 @@ export default function AppLayout({
     children 
 }) {
     const [isPageNavigating, setIsPageNavigating] = useState(false);
+    const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
     useEffect(() => {
         const removeStart = router.on('start', () => setIsPageNavigating(true));
-        const removeFinish = router.on('finish', () => setIsPageNavigating(false));
+        const removeFinish = router.on('finish', () => {
+            setIsPageNavigating(false);
+            setIsMobileSidebarOpen(false);
+        });
 
         return () => {
             removeStart();
@@ -24,8 +28,12 @@ export default function AppLayout({
 
     return (
         <div className="flex h-screen bg-slate-100 text-slate-900 font-sans overflow-hidden">
-            {/* 1. PERMANENT SHARED SIDEBAR - NEVER UNMOUNTS */}
-            <Sidebar activeMenu={activeMenu} />
+            {/* 1. PERMANENT SHARED SIDEBAR - RESPONSIVE SLIDING DRAWER ON MOBILE */}
+            <Sidebar 
+                activeMenu={activeMenu} 
+                isOpen={isMobileSidebarOpen} 
+                onClose={() => setIsMobileSidebarOpen(false)} 
+            />
 
             {/* 2. MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-100 relative">
@@ -34,6 +42,7 @@ export default function AppLayout({
                     title={title} 
                     subtitle={subtitle} 
                     statusBadge={statusBadge} 
+                    onMenuClick={() => setIsMobileSidebarOpen(true)}
                 />
 
                 {/* SLIM ACCENT PROGRESS BAR AT TOP DURING TRANSITIONS */}
@@ -43,8 +52,8 @@ export default function AppLayout({
                     </div>
                 )}
 
-                {/* NESTED PAGE CONTENT BODY (Each page renders its own local skeletons) */}
-                <main className="flex-1 overflow-y-auto p-6 space-y-6 relative">
+                {/* NESTED PAGE CONTENT BODY */}
+                <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 relative">
                     {children}
                 </main>
             </div>

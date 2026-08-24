@@ -337,12 +337,18 @@ class FoxloggerService
     {
         date_default_timezone_set('Asia/Jakarta');
         $time1 = $time1 ?? date('Y-m-d 00:00:00');
-        $time2 = $time2 ?? date('Y-m-d H:i:s');
+        
         $dateKey = date('Y-m-d', strtotime($time1));
         $isToday = ($dateKey === date('Y-m-d'));
 
-        // For today: bucket the cache key per-minute so it reuses cache within the same minute
-        // For past dates: use exact time range as key (permanent archive, never changes)
+        // For today: always ensure $time2 covers up to current time
+        if ($isToday && ($time2 === null || str_contains($time2, '23:59:59'))) {
+            $time2 = date('Y-m-d H:i:s');
+        } else {
+            $time2 = $time2 ?? date('Y-m-d H:i:s');
+        }
+
+        // Cache bucketed for maximum 60 seconds on today's data so it always stays fresh
         $cacheKeyPayload = $isToday ? "{$dateKey}_" . date('YmdHi') : md5($time1 . $time2);
         $cacheKey = "foxlogger_history_{$imei}_{$cacheKeyPayload}";
 
@@ -350,22 +356,20 @@ class FoxloggerService
             return Cache::get($cacheKey);
         }
 
-        // Check local DB first for ALL dates (including today) — DB has granular data
-        // For past dates: DB has permanent archived data — always served from DB instantly
-        // For today: check freshness — if last record is older than 3 minutes, bypass and re-fetch from API
+        // Check local DB first for ALL dates (including today)
         $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
             ->whereBetween('logged_at', [$time1, $time2])
             ->orderBy('logged_at', 'asc')
             ->get();
 
         if ($dbLogs->count() > 0) {
-            // For today's data: check if the DB is stale (last point > 3 minutes ago)
+            // For today's data: check the latest timestamp in DB against current time
+            // If the latest point is older than 60 seconds (1 minute), fetch fresh data from Foxlogger API
             if ($isToday) {
                 $newestLog = $dbLogs->last();
                 $ageInSeconds = now('Asia/Jakarta')->diffInSeconds($newestLog->logged_at);
-                if ($ageInSeconds > 180) {
-                    // DB data is stale — skip and fetch fresh from Foxlogger API below
-                    Log::info("GpsTelemetryLog stale for {$imei}: last point {$ageInSeconds}s ago. Re-fetching from API.");
+                if ($ageInSeconds > 60) {
+                    Log::info("GpsTelemetryLog for {$imei} is {$ageInSeconds}s behind current time. Fetching fresh updates from Foxlogger API.");
                     goto fetchFromApi;
                 }
             }
@@ -385,8 +389,8 @@ class FoxloggerService
                 ];
             })->toArray();
 
-            // Short TTL for today, long for past dates (permanent archive)
-            $ttl = $isToday ? now()->addMinutes(2) : now()->addHours(6);
+            // 1-minute TTL for today so subsequent requests within the minute are instant
+            $ttl = $isToday ? now()->addSeconds(60) : now()->addHours(6);
             Cache::put($cacheKey, $formattedFromDb, $ttl);
             return $formattedFromDb;
         }
@@ -437,13 +441,31 @@ class FoxloggerService
                             Log::warning("GpsTelemetryLog bulkSync Exception: " . $e->getMessage());
                         }
 
-                        Cache::put($cacheKey, $history, now()->addMinutes(5));
+                        Cache::put($cacheKey, $history, now()->addSeconds(60));
                         return $history;
                     }
                 }
             } catch (\Throwable $e) {
                 Log::error("Foxlogger getReportHistory Exception for {$key}", ['error' => $e->getMessage()]);
             }
+        }
+
+        // If Foxlogger API call was empty or offline, fallback to whatever DB logs we already have
+        if (!empty($dbLogs) && $dbLogs->count() > 0) {
+            return $dbLogs->map(function ($log) {
+                return [
+                    'time' => $log->logged_at->format('Y-m-d H:i:s'),
+                    'lat' => (string)$log->latitude,
+                    'long' => (string)$log->longitude,
+                    'Speed' => (int)$log->speed,
+                    'addr' => $log->address,
+                    'status' => $log->status,
+                    'engi' => $log->engine_status,
+                    'Mill' => $log->mileage_km,
+                    'unit' => $log->truck_plate,
+                    'imei' => $log->imei,
+                ];
+            })->toArray();
         }
 
         return [];
@@ -453,7 +475,7 @@ class FoxloggerService
     {
         $date = $date ?? date('Y-m-d');
         $time1 = "{$date} 00:00:00";
-        $time2 = "{$date} 23:59:59";
+        $time2 = ($date === date('Y-m-d')) ? date('Y-m-d H:i:s') : "{$date} 23:59:59";
 
         return $this->getReportHistory($imei, $time1, $time2);
     }
@@ -466,7 +488,14 @@ class FoxloggerService
     {
         date_default_timezone_set('Asia/Jakarta');
         $time1 = $time1 ?? date('Y-m-d 00:00:00');
-        $time2 = $time2 ?? date('Y-m-d 23:59:59');
+        $dateKey = date('Y-m-d', strtotime($time1));
+        $isToday = ($dateKey === date('Y-m-d'));
+
+        if ($isToday && ($time2 === null || str_contains($time2, '23:59:59'))) {
+            $time2 = date('Y-m-d H:i:s');
+        } else {
+            $time2 = $time2 ?? date('Y-m-d 23:59:59');
+        }
 
         // 1. Ultra-fast check in local DB
         // Calculate metrics: only average speed when truck is actually moving (speed > 0 and not OFF)

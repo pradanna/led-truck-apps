@@ -14,29 +14,11 @@ use Inertia\Response;
 
 class SettingsController extends Controller
 {
-    protected HolowitsService $holowits;
-    protected FoxloggerService $foxlogger;
-    protected VnnoxPlaylogService $vnnox;
-
-    public function __construct(
-        HolowitsService $holowits,
-        FoxloggerService $foxlogger,
-        VnnoxPlaylogService $vnnox
-    ) {
-        $this->holowits = $holowits;
-        $this->foxlogger = $foxlogger;
-        $this->vnnox = $vnnox;
-    }
-
     /**
-     * Display the Global Settings Page
+     * Display the Account Settings Page
      */
     public function index(Request $request): Response
     {
-        $truckConfigs = $this->holowits->getTruckConfigs();
-        $foxloggerSession = \Illuminate\Support\Facades\Cache::get('foxlogger_token_session_truck_1', []);
-        $hasVnnox = $this->vnnox->hasConfiguredCredentials();
-
         // List all users for Admin User Management
         $users = User::select('id', 'name', 'email', 'role', 'expires_at', 'is_active', 'created_at')
             ->orderBy('id', 'asc')
@@ -50,123 +32,13 @@ class SettingsController extends Controller
                     'is_active' => (bool)$u->is_active,
                     'expires_at' => $u->expires_at ? $u->expires_at->format('Y-m-d') : null,
                     'expires_at_human' => $u->expires_at ? $u->expires_at->translatedFormat('d M Y') : 'Tanpa Batas',
+                    'created_at_human' => $u->created_at ? $u->created_at->translatedFormat('d M Y') : '-',
                     'is_expired' => $u->isExpired(),
                 ];
             });
 
-        // Load global integration settings (masked for safety)
-        $foxloggerUsername = SystemSetting::get('foxlogger_username', env('EMAIL_LOGFLOGGER', 'centralledid168@gmail.com'));
-        $foxloggerPassword = SystemSetting::get('foxlogger_password', env('PASSWORD_LOGFLOGGER', '575859'));
-
-        $vnnoxBaseUrl = SystemSetting::get('vnnox_base_url', config('services.vnnox.base_url', env('VNNOX_BASE_URL', 'https://openapi-eu.vnnox.com')));
-        $vnnoxAppKey = SystemSetting::get('vnnox_app_key', config('services.vnnox.app_key', env('VNNOX_APP_KEY', '')));
-        $vnnoxAppSecret = SystemSetting::get('vnnox_app_secret', config('services.vnnox.app_secret', env('VNNOX_APP_SECRET', '')));
-
         return Inertia::render('Settings', [
-            'truckConfigs' => $truckConfigs,
-            'globalIntegrations' => [
-                'foxlogger' => [
-                    'username' => $foxloggerUsername,
-                    'password' => $foxloggerPassword,
-                ],
-                'vnnox' => [
-                    'base_url' => $vnnoxBaseUrl,
-                    'app_key' => $vnnoxAppKey,
-                    'app_secret' => $vnnoxAppSecret,
-                ]
-            ],
-            'apiStatus' => [
-                'foxlogger' => !empty($foxloggerSession['access_token']),
-                'vnnox' => $hasVnnox,
-            ],
             'usersList' => $users,
-        ]);
-    }
-
-    /**
-     * Update Foxlogger GPS Credentials (Encrypted)
-     */
-    public function updateFoxlogger(Request $request)
-    {
-        $request->validate([
-            'username' => 'required|string',
-            'password' => 'required|string',
-        ]);
-
-        \App\Models\SystemSetting::set('foxlogger_username', trim($request->input('username')), 'foxlogger', false, 'Email/Username Akun Foxlogger');
-        \App\Models\SystemSetting::set('foxlogger_password', trim($request->input('password')), 'foxlogger', true, 'Password Akun Foxlogger');
-
-        // Test login directly
-        $session = $this->foxlogger->login();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Kredensial Foxlogger berhasil disimpan dan dienkripsi di database!',
-            'session_active' => !empty($session['access_token']),
-        ]);
-    }
-
-    /**
-     * Update VNNOX Player API Credentials (Encrypted)
-     */
-    public function updateVnnox(Request $request)
-    {
-        $request->validate([
-            'base_url' => 'required|string|url',
-            'app_key' => 'required|string',
-            'app_secret' => 'required|string',
-        ]);
-
-        \App\Models\SystemSetting::set('vnnox_base_url', rtrim(trim($request->input('base_url')), '/'), 'vnnox', false, 'Base URL API VnNox');
-        \App\Models\SystemSetting::set('vnnox_app_key', trim($request->input('app_key')), 'vnnox', true, 'App Key API VnNox');
-        \App\Models\SystemSetting::set('vnnox_app_secret', trim($request->input('app_secret')), 'vnnox', true, 'App Secret API VnNox');
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Kredensial API VnNox berhasil disimpan dan dienkripsi di database!',
-        ]);
-    }
-
-    /**
-     * Update Truck NVR Network Configurations (Admin Only)
-     */
-    public function updateNvr(Request $request)
-    {
-        $request->validate([
-            'truck_id' => 'required|string',
-            'nvr_ip' => 'required|string',
-            'http_port' => 'nullable|numeric',
-            'rtsp_port' => 'nullable|numeric',
-            'username' => 'nullable|string',
-            'password' => 'nullable|string',
-        ]);
-
-        $configs = $this->holowits->getTruckConfigs();
-        $truckId = $request->input('truck_id');
-
-        if (!isset($configs[$truckId])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'ID Truk tidak valid.'
-            ], 404);
-        }
-
-        $configs[$truckId]['nvr_ip'] = trim($request->input('nvr_ip'));
-        if ($request->filled('http_port')) $configs[$truckId]['http_port'] = (int)$request->input('http_port');
-        if ($request->filled('rtsp_port')) $configs[$truckId]['rtsp_port'] = (int)$request->input('rtsp_port');
-        if ($request->filled('username')) $configs[$truckId]['username'] = trim($request->input('username'));
-        if ($request->filled('password')) $configs[$truckId]['password'] = $request->input('password');
-
-        $this->holowits->saveTruckConfigs($configs);
-
-        // Force test connection to NVR
-        $freshData = $this->holowits->getLiveMonitoringData(true);
-
-        return response()->json([
-            'success' => true,
-            'message' => "Pengaturan IP NVR {$configs[$truckId]['name']} berhasil disimpan!",
-            'configs' => $configs,
-            'monitoring' => $freshData
         ]);
     }
 
@@ -181,6 +53,7 @@ class SettingsController extends Controller
             'password' => 'required|string|min:6',
             'role' => 'required|in:admin,user',
             'expires_at' => 'nullable|date',
+            'is_active' => 'nullable|boolean',
         ]);
 
         $user = User::create([
@@ -189,13 +62,25 @@ class SettingsController extends Controller
             'password' => Hash::make($request->input('password')),
             'role' => $request->input('role'),
             'expires_at' => $request->input('role') === 'admin' ? null : $request->input('expires_at'),
-            'is_active' => true,
+            'is_active' => $request->has('is_active') ? $request->boolean('is_active') : true,
         ]);
+
+        $formattedUser = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'is_active' => (bool)$user->is_active,
+            'expires_at' => $user->expires_at ? $user->expires_at->format('Y-m-d') : null,
+            'expires_at_human' => $user->expires_at ? $user->expires_at->translatedFormat('d M Y') : 'Tanpa Batas',
+            'created_at_human' => $user->created_at ? $user->created_at->translatedFormat('d M Y') : 'Baru saja',
+            'is_expired' => $user->isExpired(),
+        ];
 
         return response()->json([
             'success' => true,
-            'message' => "Akun {$user->name} ({$user->role}) berhasil dibuat!",
-            'user' => $user,
+            'message' => "Akun {$user->name} berhasil dibuat!",
+            'user' => $formattedUser,
         ]);
     }
 
@@ -227,10 +112,22 @@ class SettingsController extends Controller
 
         $user->save();
 
+        $formattedUser = [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'is_active' => (bool)$user->is_active,
+            'expires_at' => $user->expires_at ? $user->expires_at->format('Y-m-d') : null,
+            'expires_at_human' => $user->expires_at ? $user->expires_at->translatedFormat('d M Y') : 'Tanpa Batas',
+            'created_at_human' => $user->created_at ? $user->created_at->translatedFormat('d M Y') : '-',
+            'is_expired' => $user->isExpired(),
+        ];
+
         return response()->json([
             'success' => true,
             'message' => "Akun {$user->name} berhasil diperbarui!",
-            'user' => $user,
+            'user' => $formattedUser,
         ]);
     }
 

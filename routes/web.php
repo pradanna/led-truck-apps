@@ -24,7 +24,7 @@ Route::middleware('guest')->group(function () {
 });
 
 // Logout Route
-Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->middleware('auth')->name('logout');
+Route::match(['get', 'post'], '/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
 
 // Authenticated Routes (Accessible by both Admin and Client/User)
 Route::middleware('auth')->group(function () {

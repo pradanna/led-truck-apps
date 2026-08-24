@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { usePage, router } from '@inertiajs/react';
-import { User, LogOut, ChevronDown, ShieldCheck, Clock, Bell, Calendar, UserCheck } from 'lucide-react';
+import { usePage, router, Link } from '@inertiajs/react';
+import { User, LogOut, ChevronDown, ShieldCheck, Clock, Bell, Calendar, UserCheck, Settings } from 'lucide-react';
 
 export default function Navbar({ title, subtitle, statusBadge }) {
     const { auth } = usePage().props;
@@ -21,8 +21,18 @@ export default function Navbar({ title, subtitle, statusBadge }) {
     }, []);
 
     const handleLogout = (e) => {
-        e.preventDefault();
-        router.post('/logout');
+        if (e) e.preventDefault();
+        router.post('/logout', {}, {
+            onSuccess: () => {
+                window.location.href = '/login';
+            },
+            onError: () => {
+                window.location.href = '/login';
+            },
+            onFinish: () => {
+                window.location.href = '/login';
+            }
+        });
     };
 
     const userInitial = user.name ? user.name.charAt(0).toUpperCase() : 'A';
@@ -110,6 +120,20 @@ export default function Navbar({ title, subtitle, statusBadge }) {
                                     </span>
                                 </div>
                             </div>
+
+                            {/* Admin Settings Shortcut */}
+                            {isAdmin && (
+                                <div className="px-3 pb-1">
+                                    <Link
+                                        href="/settings"
+                                        className="w-full text-left px-3 py-2 text-xs font-bold text-slate-700 hover:text-blue-600 hover:bg-blue-50 rounded-xl flex items-center gap-2 transition-colors cursor-pointer"
+                                        onClick={() => setIsDropdownOpen(false)}
+                                    >
+                                        <Settings className="w-4 h-4 text-slate-400" />
+                                        <span>Pengaturan Akun</span>
+                                    </Link>
+                                </div>
+                            )}
 
                             {/* Logout Action */}
                             <div className="border-t border-slate-100 pt-1">

@@ -140,11 +140,11 @@ export default function GpsTracking({ realDevices = [], realPositions = [] }) {
           if (data.success && Array.isArray(data.data) && data.data.length > 0) {
             const formatted = data.data.map((pt, index) => ({
               id: index + 1,
-              lat: parseFloat(pt.lat),
-              lng: parseFloat(pt.long),
-              speed: pt.Speed,
-              time: pt.time,
-              address: pt.addr
+              lat: parseFloat(pt.lat || pt.latitude),
+              lng: parseFloat(pt.long || pt.longitude),
+              speed: pt.Speed !== undefined ? pt.Speed : (pt.speed !== undefined ? pt.speed : 0),
+              time: pt.time || pt.last_upd || pt.logged_at || '',
+              address: pt.addr || pt.address || 'Posisi Rute Armada'
             })).filter(pt => !isNaN(pt.lat) && !isNaN(pt.lng));
 
             const uniquePoints = [];

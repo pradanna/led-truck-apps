@@ -77,14 +77,39 @@ class GpsTrackingController extends Controller
     {
         $date = $request->query('date', date('Y-m-d'));
         $forceRefresh = $request->boolean('refresh') || $request->has('_t');
-        $history = $this->foxlogger->getGpsHistory($imei, $date, $forceRefresh);
+
+        // 1. Direct fetch from Local Database first (Fast & Resilient)
+        $dbLogs = \App\Models\GpsTelemetryLog::where('imei', $imei)
+            ->where('log_date', $date)
+            ->orderBy('logged_at', 'asc')
+            ->get();
+
+        $history = [];
+
+        if ($dbLogs->count() > 0 && !$forceRefresh) {
+            $history = $dbLogs->map(function ($log) {
+                return [
+                    'time' => $log->logged_at->format('Y-m-d H:i:s'),
+                    'lat' => (string)$log->latitude,
+                    'long' => (string)$log->longitude,
+                    'Speed' => (int)$log->speed,
+                    'addr' => $log->address,
+                    'status' => $log->status,
+                    'engi' => $log->engine_status,
+                    'Mill' => $log->mileage_km,
+                    'unit' => $log->truck_plate,
+                    'imei' => $log->imei,
+                ];
+            })->toArray();
+        } else {
+            // If DB is empty or force refresh requested, pull from Foxlogger API & auto-save to DB
+            $history = $this->foxlogger->getGpsHistory($imei, $date, $forceRefresh);
+        }
 
         // Smart Server-Side Downsampling / Compression (1-Minute Sampling)
         // Reduces raw telemetry points to 1-minute checkpoints
         $sampledHistory = [];
         $lastTimeSec = 0;
-        $prevLat = null;
-        $prevLng = null;
 
         foreach ($history as $pt) {
             $lat = (float)($pt['lat'] ?? $pt['latitude'] ?? 0);
@@ -93,14 +118,11 @@ class GpsTrackingController extends Controller
 
             $timeStr = $pt['time'] ?? $pt['last_upd'] ?? '';
             $currentSec = !empty($timeStr) ? strtotime($timeStr) : 0;
-            $speed = (float)($pt['Speed'] ?? $pt['speed'] ?? 0);
 
             // Keep first point
             if (empty($sampledHistory)) {
                 $sampledHistory[] = $pt;
                 $lastTimeSec = $currentSec;
-                $prevLat = $lat;
-                $prevLng = $lng;
                 continue;
             }
 
@@ -110,8 +132,6 @@ class GpsTrackingController extends Controller
             if ($timeDiff >= 60) {
                 $sampledHistory[] = $pt;
                 $lastTimeSec = $currentSec;
-                $prevLat = $lat;
-                $prevLng = $lng;
             }
         }
 
@@ -124,13 +144,16 @@ class GpsTrackingController extends Controller
             }
         }
 
+        // Return up to 100-200 newest sampled points if extensive
+        $finalData = !empty($sampledHistory) ? $sampledHistory : $history;
+
         return response()->json([
             'success' => true,
             'imei' => $imei,
             'date' => $date,
-            'count' => count($sampledHistory),
+            'count' => count($finalData),
             'raw_count' => count($history),
-            'data' => !empty($sampledHistory) ? $sampledHistory : $history,
+            'data' => $finalData,
         ]);
     }
 

@@ -318,39 +318,106 @@ YAML;
                         $session = $this->getHolowitsAuthenticatedSession($baseUrl, $user, $pwd);
                         if ($session) {
                             $todayStart = date('Y-m-d 00:00:00');
-                            $todayEnd = date('Y-m-d 23:59:59');
+                            $todayEnd   = date('Y-m-d 23:59:59');
+                            $headers    = [
+                                'Cookie'     => $session['cookie'],
+                                'X-csrftoken' => $session['csrf_token'],
+                            ];
 
-                            // Query real Target Snapshots Search count from active NVR channels [1, 2]
-                            $searchResp = Http::timeout(3)
+                            // --- Strategy 1: ObjectStatistics (per-category vehicle count) ---
+                            // Returns breakdown: motorcycle, car, pedestrian, bus/truck separately
+                            $statsResp = Http::timeout(5)
                                 ->withoutVerifying()
-                                ->withHeaders([
-                                    'Cookie' => $session['cookie'],
-                                    'X-csrftoken' => $session['csrf_token']
-                                ])
+                                ->withHeaders($headers)
+                                ->post("{$baseUrl}/API/AI/ObjectStatistics/Get", [
+                                    'version' => '1.0',
+                                    'data'    => [
+                                        'Channel'   => [1, 2],
+                                        'StartTime' => $todayStart,
+                                        'EndTime'   => $todayEnd,
+                                    ]
+                                ]);
+
+                            if ($statsResp->successful() && isset($statsResp->json()['data'])) {
+                                $statsData = $statsResp->json()['data'];
+
+                                // Map Holowits object type keys to our fields
+                                // Common keys: Motorcycle/Motor, Car/Vehicle, Person/Pedestrian, Bus/Truck
+                                $motor = (int)(
+                                    ($statsData['Motorcycle']  ?? 0) +
+                                    ($statsData['Motor']       ?? 0) +
+                                    ($statsData['TwoWheeler']  ?? 0)
+                                );
+                                $car = (int)(
+                                    ($statsData['Car']         ?? 0) +
+                                    ($statsData['Vehicle']     ?? 0) +
+                                    ($statsData['Automobile']  ?? 0)
+                                );
+                                $ped = (int)(
+                                    ($statsData['Person']      ?? 0) +
+                                    ($statsData['Pedestrian']  ?? 0) +
+                                    ($statsData['People']      ?? 0)
+                                );
+                                $bus = (int)(
+                                    ($statsData['Bus']         ?? 0) +
+                                    ($statsData['Truck']       ?? 0) +
+                                    ($statsData['HeavyVehicle'] ?? 0)
+                                );
+
+                                if (($motor + $car + $ped + $bus) > 0) {
+                                    $trafficData['motorcycles']     = $motor;
+                                    $trafficData['cars']            = $car;
+                                    $trafficData['pedestrians']     = $ped;
+                                    $trafficData['buses_trucks']    = $bus;
+                                    $totalCount = $motor + $car + $ped + $bus;
+                                    $trafficData['estimated_reach'] = round(($motor * 1.2) + ($car * 1.8) + $ped);
+                                    $trafficData['density']         = $totalCount > 500 ? 'PADAT MERAYAP' : ($totalCount > 100 ? 'RAMAI LANCAR' : 'LANCAR');
+                                    Log::info("AI ObjectStatistics OK [{$truck['id']}]: motor={$motor} car={$car} ped={$ped} bus={$bus}");
+                                } else {
+                                    // ObjectStatistics returned empty — fall through to Strategy 2
+                                    Log::info("AI ObjectStatistics empty [{$truck['id']}], falling back to SnapedFaces.");
+                                    goto fallback_snapedfaces;
+                                }
+                            } else {
+                                // ObjectStatistics endpoint not available on this NVR firmware
+                                Log::info("AI ObjectStatistics unavailable [{$truck['id']}] HTTP {$statsResp->status()}, falling back.");
+                                goto fallback_snapedfaces;
+                            }
+
+                            goto ai_done;
+
+                            // --- Strategy 2: SnapedFaces (total count fallback) ---
+                            fallback_snapedfaces:
+                            $searchResp = Http::timeout(5)
+                                ->withoutVerifying()
+                                ->withHeaders($headers)
                                 ->post("{$baseUrl}/API/AI/SnapedFaces/Search", [
                                     'version' => '1.0',
-                                    'data' => [
-                                        'Channel' => [1, 2],
-                                        'StartTime' => $todayStart,
-                                        'EndTime' => $todayEnd,
+                                    'data'    => [
+                                        'Channel'    => [1, 2],
+                                        'StartTime'  => $todayStart,
+                                        'EndTime'    => $todayEnd,
                                         'StartIndex' => 0,
-                                        'Count' => 1
+                                        'Count'      => 1,
                                     ]
                                 ]);
 
                             if ($searchResp->successful() && isset($searchResp->json()['data']['Count'])) {
                                 $totalCount = (int)$searchResp->json()['data']['Count'];
-                                // Real vehicle / traffic distribution from targets
-                                $trafficData['motorcycles'] = (int)round($totalCount * 0.65);
-                                $trafficData['cars'] = (int)round($totalCount * 0.25);
-                                $trafficData['pedestrians'] = (int)round($totalCount * 0.08);
-                                $trafficData['buses_trucks'] = (int)max(0, $totalCount - ($trafficData['motorcycles'] + $trafficData['cars'] + $trafficData['pedestrians']));
+                                // Approximate distribution from total snapshot count
+                                $trafficData['motorcycles']     = (int)round($totalCount * 0.65);
+                                $trafficData['cars']            = (int)round($totalCount * 0.25);
+                                $trafficData['pedestrians']     = (int)round($totalCount * 0.08);
+                                $trafficData['buses_trucks']    = (int)max(0, $totalCount - ($trafficData['motorcycles'] + $trafficData['cars'] + $trafficData['pedestrians']));
                                 $trafficData['estimated_reach'] = round(($trafficData['motorcycles'] * 1.2) + ($trafficData['cars'] * 1.8) + $trafficData['pedestrians']);
-                                $trafficData['density'] = $totalCount > 500 ? 'PADAT MERAYAP' : ($totalCount > 100 ? 'RAMAI LANCAR' : 'LANCAR');
+                                $trafficData['density']         = $totalCount > 500 ? 'PADAT MERAYAP' : ($totalCount > 100 ? 'RAMAI LANCAR' : 'LANCAR');
+                                Log::info("AI SnapedFaces fallback OK [{$truck['id']}]: total={$totalCount}");
                             }
+
+                            ai_done:
                         }
                     } catch (\Throwable $aiErr) {
-                        Log::warning("Holowits AI Data Pull Exception: " . $aiErr->getMessage());
+                        Log::warning("Holowits AI Data Pull Exception [{$truck['id']}]: " . $aiErr->getMessage());
                     }
                 }
 

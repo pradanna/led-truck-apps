@@ -2,37 +2,37 @@ import React from 'react';
 import { Play, Clock, LayoutGrid, AlertCircle } from 'lucide-react';
 
 export function PlaylistItemCard({ item, onTriggerPlay }) {
-    const getStatusBadge = (status) => {
-        switch (status?.toUpperCase()) {
-            case 'PLAYING':
-                return (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-emerald-100 text-emerald-700 uppercase shrink-0">
-                        PLAYING
-                    </span>
-                );
-            case 'ACTIVE':
-                return (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-blue-100 text-blue-700 uppercase shrink-0">
-                        ACTIVE
-                    </span>
-                );
+    // Materi aktif di antrean videotron default-nya adalah SEDANG TAYANG (auto-looping)
+    const isPlaying = item.status?.toUpperCase() === 'PLAYING' || item.status?.toUpperCase() === 'ACTIVE' || (!item.status && item.onlineStatus);
+
+    const getStatusBadge = () => {
+        if (isPlaying) {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-emerald-100 text-emerald-800 uppercase shrink-0">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+                    SEDANG TAYANG
+                </span>
+            );
+        }
+
+        switch (item.status?.toUpperCase()) {
             case 'SCHEDULED':
                 return (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-purple-100 text-purple-700 uppercase shrink-0">
-                        SCHEDULED
+                        TERJADWAL
                     </span>
                 );
             case 'OFFLINE':
                 return (
-                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-rose-100 text-rose-700 uppercase shrink-0">
-                        OFFLINE
+                    <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-slate-100 text-slate-500 uppercase shrink-0">
+                        STANDBY
                     </span>
                 );
             case 'PAUSED':
             default:
                 return (
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold tracking-wider bg-slate-200 text-slate-600 uppercase shrink-0">
-                        PAUSED
+                        JEDA
                     </span>
                 );
         }
@@ -52,7 +52,7 @@ export function PlaylistItemCard({ item, onTriggerPlay }) {
                     >
                         {displayId}
                     </span>
-                    {getStatusBadge(item.status)}
+                    {getStatusBadge()}
                 </div>
 
                 {/* Cover Preview (or fallback icon) */}
@@ -79,50 +79,12 @@ export function PlaylistItemCard({ item, onTriggerPlay }) {
                     {item.client}
                 </p>
 
-                {/* Duration & Frequency */}
-                <div className="flex items-center gap-2 text-xs text-slate-500 mt-2.5 font-medium">
-                    <span className="inline-flex items-center gap-1 shrink-0">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                        {item.duration} Detik
-                    </span>
-                    <span>•</span>
-                    <span className="truncate">{item.frequency}</span>
-                </div>
-            </div>
-
-            {/* Bottom Footer & Action Button */}
-            <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                    <span className="text-[11px] text-slate-400 block font-medium">Impresi:</span>
-                    <span className="text-xs font-bold text-slate-800">
-                        {item.impressions ? item.impressions.toLocaleString('id-ID') : 0}
+                {/* Frequency / Mode */}
+                <div className="flex items-center gap-2 text-xs text-slate-600 mt-3 pt-2.5 border-t border-slate-100 font-semibold">
+                    <span className="inline-flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200/60 px-2.5 py-1 rounded-lg text-[11px] text-slate-600">
+                        {item.frequency || 'Auto-Looping Playlist'}
                     </span>
                 </div>
-
-                {item.status === 'PLAYING' ? (
-                    <button
-                        disabled
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-emerald-500 text-emerald-600 font-bold text-xs bg-emerald-50/50 cursor-default"
-                    >
-                        <Play className="w-3.5 h-3.5 fill-emerald-600" />
-                        <span>Sedang Tayang</span>
-                    </button>
-                ) : onTriggerPlay ? (
-                    <button
-                        onClick={() => onTriggerPlay(item.id)}
-                        disabled={item.status === 'PAUSED' || item.status === 'OFFLINE'}
-                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white font-bold text-xs transition-all shadow-sm cursor-pointer ${
-                            item.status === 'PAUSED' || item.status === 'OFFLINE'
-                                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
-                                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-                        }`}
-                    >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Tayangkan</span>
-                    </button>
-                ) : (
-                    <span className="text-[11px] font-semibold text-slate-400">View Only</span>
-                )}
             </div>
         </div>
     );

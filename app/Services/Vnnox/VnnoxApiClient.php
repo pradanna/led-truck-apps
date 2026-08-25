@@ -46,13 +46,14 @@ class VnnoxApiClient
          $headers = $this->authService->getAuthHeaders($truckId);
 
          try {
-             $client = Http::withHeaders($headers)
-                 ->timeout(2);
+            $client = Http::withoutVerifying()
+                ->withHeaders($headers)
+                ->timeout(8);
 
             if (strtoupper($method) === 'POST') {
                 $response = $client->asJson()->post($url, $data);
             } else {
-                $response = $client->asForm()->get($url, $data);
+                $response = $client->get($url, $data);
             }
 
             if ($response->successful()) {

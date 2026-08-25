@@ -18,42 +18,67 @@ class PlaylogController extends Controller
 
     /**
      * Display the Playlog & Novastar Videotron Controller Page
-     * Instant render with local cache
+     * Instant render with local database and cache
      */
     public function index(Request $request): Response
     {
         $selectedTruck = $request->query('truck_id', 'truck_1');
-        if (!in_array($selectedTruck, ['truck_1', 'truck_2'])) {
+        if (!in_array($selectedTruck, ['truck_1', 'truck_2', 'all'])) {
             $selectedTruck = 'truck_1';
         }
 
-        $playlistResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlist_data_{$selectedTruck}", [
+        $playlistTruck = ($selectedTruck === 'all') ? 'truck_1' : $selectedTruck;
+
+        $playlistResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlist_data_{$playlistTruck}", [
             'success' => true,
             'items' => []
         ]);
-        $controllerStatus = \Illuminate\Support\Facades\Cache::get("vnnox_controller_status_{$selectedTruck}", [
+        $controllerStatus = \Illuminate\Support\Facades\Cache::get("vnnox_controller_status_{$playlistTruck}", [
             'success' => true,
             'onlineStatus' => false,
             'processorChip' => 'NovaStar TU20Pro',
             'refreshRate' => '3,840 Hz',
         ]);
-        $playlogResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlog_records_{$selectedTruck}", [
-            'success' => true,
-            'records' => []
-        ]);
 
-        $truckInfo = $selectedTruck === 'truck_2' ? [
-            'id' => 'truck_2',
-            'name' => 'Truk LED 02',
-            'plateNumber' => 'B 9729 JXS',
-            'location' => 'Gading Serpong / Tangerang',
-            'isLive' => $controllerStatus['onlineStatus'] ?? false,
-            'operationalDateTime' => now()->translatedFormat('d M Y, H.i.s'),
-        ] : [
-            'id' => 'truck_1',
-            'name' => 'Truk LED 01',
-            'plateNumber' => 'B 9731 JXS',
-            'location' => 'BSD City / Tangerang',
+        // 1. Check local database records
+        $query = \App\Models\VnnoxPlaylogLog::whereDate('log_date', date('Y-m-d'));
+        if ($selectedTruck !== 'all') {
+            $query->where('truck_id', $selectedTruck);
+        }
+        $dbPlaylogs = $query->orderBy('play_time', 'desc')->get();
+
+        if ($dbPlaylogs->count() > 0) {
+            $records = [];
+            foreach ($dbPlaylogs as $idx => $dbLog) {
+                $truckLabel = $dbLog->truck_id === 'truck_2' ? 'Truk LED 02 (B 9729 JXS)' : 'Truk LED 01 (B 9731 JXS)';
+                $records[] = [
+                    'id' => 'LOG-' . str_pad($idx + 1, 3, '0', STR_PAD_LEFT),
+                    'materi' => $dbLog->media_name,
+                    'klien' => $dbLog->client_name ?: 'Klien Umum',
+                    'stempelWaktu' => $dbLog->play_time ?: ($dbLog->log_date->format('Y-m-d') . ' WIB'),
+                    'durasi' => $dbLog->duration,
+                    'status' => $dbLog->status,
+                    'infoSistem' => $dbLog->info_system ?: 'Tercatat di Database Server',
+                    'truckId' => $dbLog->truck_id,
+                    'truckLabel' => $truckLabel,
+                ];
+            }
+            $playlogResult = [
+                'success' => true,
+                'records' => $records,
+            ];
+        } else {
+            $playlogResult = \Illuminate\Support\Facades\Cache::get("vnnox_playlog_records_{$playlistTruck}", [
+                'success' => true,
+                'records' => []
+            ]);
+        }
+
+        $truckInfo = [
+            'id' => $selectedTruck,
+            'name' => $selectedTruck === 'all' ? 'Semua Armada Truk LED' : ($selectedTruck === 'truck_2' ? 'Truk LED 02' : 'Truk LED 01'),
+            'plateNumber' => $selectedTruck === 'all' ? '2 Unit Aktif' : ($selectedTruck === 'truck_2' ? 'B 9729 JXS' : 'B 9731 JXS'),
+            'location' => $selectedTruck === 'all' ? 'Tangerang & BSD City' : ($selectedTruck === 'truck_2' ? 'Gading Serpong / Tangerang' : 'BSD City / Tangerang'),
             'isLive' => $controllerStatus['onlineStatus'] ?? false,
             'operationalDateTime' => now()->translatedFormat('d M Y, H.i.s'),
         ];
@@ -81,6 +106,15 @@ class PlaylogController extends Controller
         $playlistResult = $this->playlogService->getPlaylistData(true, $selectedTruck);
         $controllerStatus = $this->playlogService->getNovastarControllerStatus(true, $selectedTruck);
         $playlogResult = $this->playlogService->getPlaylogRecordsData(true, $selectedTruck);
+
+        // Auto-archive into DB
+        if (!empty($playlogResult['records'])) {
+            foreach ($playlogResult['records'] as $rec) {
+                try {
+                    \App\Models\VnnoxPlaylogLog::recordLog($selectedTruck, date('Y-m-d'), $rec);
+                } catch (\Throwable $e) {}
+            }
+        }
 
         return response()->json([
             'success' => true,

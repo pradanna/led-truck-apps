@@ -148,29 +148,50 @@ class ReportController extends Controller
             ];
         }
 
-        // 2. Fetch Real Playlog Data from VnNox Service (instant cache on page view)
-        $playlogResult = $isExport
-            ? $this->playlogService->getPlaylogRecordsData()
-            : Cache::get("vnnox_playlog_records_{$truckFilter}", Cache::get('vnnox_playlog_records_truck_1', ['records' => []]));
-        $playlistResult = $isExport
-            ? $this->playlogService->getPlaylistData()
-            : Cache::get("vnnox_playlist_data_{$truckFilter}", Cache::get('vnnox_playlist_data_truck_1', ['items' => []]));
-        $allRecords = $playlogResult['records'] ?? [];
+        // 2. Fetch Playlog Data: Check Database Archive First, Fallback to Cache/Live VNNOX Service
+        $dbPlaylogQuery = \App\Models\VnnoxPlaylogLog::whereBetween('log_date', [$dateFrom, $dateTo]);
+        if ($truckFilter !== 'all') {
+            $dbPlaylogQuery->where('truck_id', $truckFilter);
+        }
+        $dbPlaylogs = $dbPlaylogQuery->orderBy('play_time', 'desc')->get();
 
         $filteredRecords = [];
-        foreach ($allRecords as $rec) {
-            $materi = $rec['materi'] ?? '';
-            $klien = $rec['klien'] ?? '';
-
-            if ($truckFilter === 'truck_1' && !(str_contains($materi, '01') || str_contains($materi, '1') || str_contains($klien, '01'))) {
-                // filter single unit
+        if ($dbPlaylogs->count() > 0) {
+            foreach ($dbPlaylogs as $idx => $dbLog) {
+                $filteredRecords[] = [
+                    'id' => 'LOG-' . str_pad($idx + 1, 3, '0', STR_PAD_LEFT),
+                    'materi' => $dbLog->media_name,
+                    'klien' => $dbLog->client_name ?: 'Klien Umum',
+                    'stempelWaktu' => $dbLog->play_time ?: ($dbLog->log_date->format('Y-m-d') . ' WIB'),
+                    'durasi' => $dbLog->duration,
+                    'status' => $dbLog->status,
+                    'infoSistem' => $dbLog->info_system ?: 'Tercatat di Database Server',
+                    'truckId' => $dbLog->truck_id,
+                ];
             }
-            if ($truckFilter === 'truck_2' && !(str_contains($materi, '02') || str_contains($materi, '2') || str_contains($klien, '02'))) {
-                // filter single unit
-            }
+        } else {
+            // Live cache fallback
+            $playlogResult = $isExport
+                ? $this->playlogService->getPlaylogRecordsData(true, $truckFilter === 'all' ? 'truck_1' : $truckFilter)
+                : Cache::get("vnnox_playlog_records_{$truckFilter}", Cache::get('vnnox_playlog_records_truck_1', ['records' => []]));
+            $allRecords = $playlogResult['records'] ?? [];
 
-            $filteredRecords[] = $rec;
+            foreach ($allRecords as $rec) {
+                $filteredRecords[] = $rec;
+                // Auto-archive live records to DB
+                try {
+                    \App\Models\VnnoxPlaylogLog::recordLog(
+                        $rec['truckId'] ?? ($truckFilter === 'all' ? 'truck_1' : $truckFilter),
+                        date('Y-m-d'),
+                        $rec
+                    );
+                } catch (\Throwable $e) {}
+            }
         }
+
+        $playlistResult = $isExport
+            ? $this->playlogService->getPlaylistData(true, $truckFilter === 'all' ? 'truck_1' : $truckFilter)
+            : Cache::get("vnnox_playlist_data_{$truckFilter}", Cache::get('vnnox_playlist_data_truck_1', ['items' => []]));
 
         $totalPlays = count($filteredRecords);
         $totalPlaySeconds = 0;

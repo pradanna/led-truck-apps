@@ -39,6 +39,16 @@ return [
         'base_url' => env('VNNOX_BASE_URL', 'https://open-eu.vnnox.com'),
         'app_key' => env('VNNOX_APP_KEY'),
         'app_secret' => env('VNNOX_APP_SECRET'),
+        'truck_1' => [
+            'base_url' => env('VNNOX_BASE_URL', 'https://open-eu.vnnox.com'),
+            'app_key' => env('VNNOX_APP_KEY'),
+            'app_secret' => env('VNNOX_APP_SECRET'),
+        ],
+        'truck_2' => [
+            'base_url' => env('VNNOX_BASE_URL_TRUCK2', env('VNNOX_BASE_URL', 'https://open-eu.vnnox.com')),
+            'app_key' => env('VNNOX_APP_KEY_TRUCK2'),
+            'app_secret' => env('VNNOX_APP_SECRET_TRUCK2'),
+        ],
     ],
 
     'foxlogger' => [

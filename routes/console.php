@@ -22,3 +22,15 @@ Schedule::command('traffic:sync-daily')
     ->dailyAt('23:55')
     ->timezone('Asia/Jakarta')
     ->description('Otomatis backup dan arsipkan statistik AI Traffic NVR hari ini ke database lokal');
+
+// 3. Sinkronisasi & Arsip Riwayat Tayang Playlog VNNOX (Truk 1 & Truk 2)
+Schedule::command('vnnox:sync-daily')
+    ->hourly()
+    ->timezone('Asia/Jakarta')
+    ->description('Sinkronisasi berkala riwayat tayang VNNOX per jam');
+
+Schedule::command('vnnox:sync-daily')
+    ->dailyAt('23:50')
+    ->timezone('Asia/Jakarta')
+    ->description('Otomatis backup dan arsipkan rekaman Playlog VNNOX hari ini ke database lokal');
+

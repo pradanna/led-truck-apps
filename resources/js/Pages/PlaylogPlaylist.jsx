@@ -1,28 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import {
-  Key,
-  X,
-  UploadCloud,
-  FileVideo,
-  Image as ImageIcon,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Tv,
-  Clock,
-  User,
-  Layers,
-  Save
-} from 'lucide-react';
+import { Key, CheckCircle2 } from 'lucide-react';
 import AppLayout from '../Layouts/AppLayout';
 import PlaylogBannerHeader from '../Components/Playlog/PlaylogBannerHeader';
 import PlaylistGrid from '../Components/Playlog/PlaylistGrid';
-import NovastarControllerCard from '../Components/Playlog/NovastarControllerCard';
 import PlaylogRecordsTable from '../Components/Playlog/PlaylogRecordsTable';
 import { 
   SkeletonPlaylistGrid, 
-  SkeletonNovastarCard, 
   SkeletonPlaylogTable 
 } from '../Components/DashboardSkeleton';
 import axios from 'axios';
@@ -105,8 +89,14 @@ export default function PlaylogPlaylist({
         }
     };
 
-    const handleExportCsv = () => {
-        window.location.href = '/api/vnnox/export-logs';
+    const handleExportExcel = () => {
+        const truckId = truckInfo?.id || 'truck_1';
+        window.location.href = `/api/report/export-excel?tab=playlog&truck_id=${truckId}&date_from=${new Date().toISOString().split('T')[0]}&date_to=${new Date().toISOString().split('T')[0]}`;
+    };
+
+    const handleExportPdf = () => {
+        const truckId = truckInfo?.id || 'truck_1';
+        window.location.href = `/api/report/export-pdf?tab=playlog&truck_id=${truckId}&date_from=${new Date().toISOString().split('T')[0]}&date_to=${new Date().toISOString().split('T')[0]}`;
     };
 
     const showToast = (msg) => {
@@ -193,11 +183,12 @@ export default function PlaylogPlaylist({
                 truckInfo?.isLive ? (
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 uppercase tracking-wide">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        ONLINE
+                        Videotron Aktif
                     </span>
                 ) : (
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 uppercase tracking-wide">
-                        VNNOX API DISCONNECTED
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wide">
+                        <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                        Videotron Standby
                     </span>
                 )
             }
@@ -225,12 +216,12 @@ export default function PlaylogPlaylist({
                 </div>
             )}
 
-            {/* Banner Section with Add Material Button */}
-            <PlaylogBannerHeader onAddMaterial={handleOpenAddModal} selectedTruck={truckInfo?.id || 'truck_1'} />
+            {/* Top Banner Section */}
+            <PlaylogBannerHeader selectedTruck={truckInfo?.id || 'truck_1'} />
 
-            {/* Grid Row: Playlist (Left 2 cols) & Controller Specs (Right 1 col) */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
+            {/* Main Section: Playlist Antrean Materi LED (Full Width) */}
+            <div className="space-y-6">
+                <div>
                     {isLoadingLive && !currentPlaylistData?.items?.length ? (
                         <SkeletonPlaylistGrid />
                     ) : (
@@ -240,196 +231,20 @@ export default function PlaylogPlaylist({
                         />
                     )}
                 </div>
-                <div className="lg:col-span-1">
-                    {isLoadingLive && !currentControllerStatus?.processorChip && !currentControllerStatus?.refreshRate ? (
-                        <SkeletonNovastarCard />
+
+                {/* Log Aktivitas Penayangan Detil (Playlog Records Table) */}
+                <div>
+                    {isLoadingLive && !currentPlaylogData?.records?.length ? (
+                        <SkeletonPlaylogTable />
                     ) : (
-                        <NovastarControllerCard status={currentControllerStatus} />
+                        <PlaylogRecordsTable
+                            data={currentPlaylogData}
+                            onExportExcel={handleExportExcel}
+                            onExportPdf={handleExportPdf}
+                        />
                     )}
                 </div>
             </div>
-
-            {/* Bottom Section: Playlog Activity Records Table */}
-            {isLoadingLive && !currentPlaylogData?.records?.length ? (
-                <SkeletonPlaylogTable />
-            ) : (
-                <PlaylogRecordsTable
-                    data={currentPlaylogData}
-                    onExportCsv={handleExportCsv}
-                />
-            )}
-
-            {/* MODAL FORM TAMBAH MATERI BARU (NOVASTAR VNNOX SPEC) */}
-            {isAddModalOpen && (
-                <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
-                    <div className="bg-white border border-slate-200 rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl space-y-6 relative max-h-[90vh] overflow-y-auto">
-                        
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
-                                    <Plus className="w-5 h-5 stroke-[2.5]" />
-                                </div>
-                                <div>
-                                    <h3 className="font-extrabold text-slate-900 text-base">
-                                        Tambah Materi Iklan Videotron
-                                    </h3>
-                                    <p className="text-xs text-slate-500">
-                                        Format spesifikasi NovaStar TU20Pro / VNNOX Cloud API
-                                    </p>
-                                </div>
-                            </div>
-
-                            <button
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-700 p-2 rounded-xl hover:bg-slate-100 transition-colors"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-
-                        {/* Error Alert inside Modal */}
-                        {modalError && (
-                            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold flex items-start gap-2.5 shadow-xs">
-                                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                                <span>{modalError}</span>
-                            </div>
-                        )}
-
-                        {/* Upload Form */}
-                        <form onSubmit={handleSubmitNewMaterial} className="space-y-4">
-                            {/* Judul Materi Iklan */}
-                            <div>
-                                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                    Judul / Nama Materi Iklan
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    placeholder="Contoh: Promo Ramadhan 2026 - Brand X"
-                                    value={formData.title}
-                                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:outline-none"
-                                />
-                            </div>
-
-                            {/* Nama Klien / Brand & Tipe Media */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                        Nama Klien / Brand
-                                    </label>
-                                    <input
-                                        type="text"
-                                        required
-                                        placeholder="Contoh: PT Unilever Indonesia"
-                                        value={formData.client}
-                                        onChange={(e) => setFormData({ ...formData, client: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                        Tipe Format Media
-                                    </label>
-                                    <select
-                                        value={formData.media_type}
-                                        onChange={(e) => setFormData({ ...formData, media_type: e.target.value })}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-900 font-semibold focus:border-blue-500 focus:bg-white focus:outline-none cursor-pointer"
-                                    >
-                                        <option value="video">Video MP4 / MOV (Rekomendasi H.264)</option>
-                                        <option value="image">Gambar Statis PNG / JPG</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Durasi & Frekuensi Penayangan */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                        Durasi Tayang (Detik)
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="number"
-                                            required
-                                            min="5"
-                                            max="300"
-                                            value={formData.duration}
-                                            onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono font-bold focus:border-blue-500 focus:bg-white focus:outline-none"
-                                        />
-                                        <span className="absolute right-3.5 top-2.5 text-xs text-slate-400 font-medium">detik</span>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                        Frekuensi Penayangan
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={formData.frequency}
-                                        onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                                        placeholder="120x / Hari (Loop 10m)"
-                                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Upload File Media */}
-                            <div>
-                                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                                    Unggah File Video / Banner Iklan
-                                </label>
-                                <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-4 text-center transition-colors bg-slate-50/60 relative">
-                                    <input
-                                        type="file"
-                                        accept="video/mp4,video/quicktime,image/jpeg,image/png"
-                                        onChange={handleFileChange}
-                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                    />
-                                    <div className="flex flex-col items-center justify-center space-y-2">
-                                        <UploadCloud className="w-8 h-8 text-blue-500" />
-                                        <div className="text-xs font-bold text-slate-800">
-                                            {formData.file ? formData.file.name : 'Klik untuk memilih file atau seret file ke sini'}
-                                        </div>
-                                        <p className="text-[11px] text-slate-400">
-                                            Format didukung: MP4, MOV, JPG, PNG (Resolusi disarankan: 3840x768 px)
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {filePreview && (
-                                    <div className="mt-2 p-2 rounded-xl border border-slate-200 bg-white inline-block">
-                                        <img src={filePreview} alt="Preview" className="h-20 rounded-lg object-cover" />
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Modal Footer Actions */}
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddModalOpen(false)}
-                                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-colors cursor-pointer"
-                                >
-                                    Batal
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={isSubmitting}
-                                    className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-2 transition-all cursor-pointer shadow-md shadow-blue-600/30 disabled:opacity-60"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {isSubmitting ? 'Menyimpan & Sinkronisasi...' : 'Simpan & Publikasikan ke Layar'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </AppLayout>
     );
 }

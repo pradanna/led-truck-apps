@@ -1,4 +1,4 @@
-﻿name: 🚀 Deploy to VPS
+name: 🚀 Deploy to VPS
 
 on:
   push:
@@ -54,6 +54,12 @@ jobs:
           script_stop: true
           script: |
             set -e
+            set -x  # Debug: tampilkan setiap perintah yang dijalankan
+
+            # Export PATH agar composer/php/npm tersedia di non-interactive shell
+            export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin"
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" || true
 
             FRONTEND_CHANGED=${FRONTEND_CHANGED:-0}
             PHP_CHANGED=${PHP_CHANGED:-0}
@@ -73,7 +79,7 @@ jobs:
 
             # ── Pull latest code ────────────────────────────────────────
             echo "📦 Pulling latest code..."
-            git pull origin main
+            git pull --no-rebase origin main
 
             # ── Composer: jalankan jika vendor/ belum ada ATAU php berubah
             if [ ! -d "vendor" ] || [ "$PHP_CHANGED" -gt "0" ]; then

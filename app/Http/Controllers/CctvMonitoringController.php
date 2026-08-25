@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiTrafficDailyLog;
 use App\Services\HolowitsService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -18,12 +19,69 @@ class CctvMonitoringController extends Controller
 
     /**
      * Display the Live CCTV Monitoring & Traffic Analytics Dashboard
-     * Instant 0ms render without any synchronous external API calls
+     * Traffic stats diambil dari database lokal (bukan NVR API) untuk performa instan
      */
     public function index(Request $request): Response
     {
+        $today = today()->toDateString();
+
+        $t1 = AiTrafficDailyLog::where('truck_id', 'truck_1')
+            ->where('log_date', $today)
+            ->first();
+
+        $t2 = AiTrafficDailyLog::where('truck_id', 'truck_2')
+            ->where('log_date', $today)
+            ->first();
+
+        $formatTraffic = fn($row) => $row ? [
+            'motorcycles'    => $row->motorcycles,
+            'cars'           => $row->cars,
+            'pedestrians'    => $row->pedestrians,
+            'buses_trucks'   => $row->buses_trucks,
+            'total_traffic'  => $row->total_traffic,
+            'estimated_reach'=> $row->estimated_reach,
+        ] : null;
+
         return Inertia::render('CctvMonitoring', [
-            'monitoringData' => null,
+            'monitoringData'  => null,
+            'trafficSummary'  => [
+                'truck_1' => $formatTraffic($t1),
+                'truck_2' => $formatTraffic($t2),
+                'date'    => $today,
+            ],
+        ]);
+    }
+
+    /**
+     * API endpoint: traffic summary hari ini dari database lokal
+     * Digunakan oleh frontend sebagai sumber data traffic cards (bukan NVR API)
+     */
+    public function getTrafficFromDb(Request $request)
+    {
+        $today = today()->toDateString();
+
+        $t1 = AiTrafficDailyLog::where('truck_id', 'truck_1')
+            ->where('log_date', $today)
+            ->first();
+
+        $t2 = AiTrafficDailyLog::where('truck_id', 'truck_2')
+            ->where('log_date', $today)
+            ->first();
+
+        $formatTraffic = fn($row) => $row ? [
+            'motorcycles'    => $row->motorcycles,
+            'cars'           => $row->cars,
+            'pedestrians'    => $row->pedestrians,
+            'buses_trucks'   => $row->buses_trucks,
+            'total_traffic'  => $row->total_traffic,
+            'estimated_reach'=> $row->estimated_reach,
+        ] : null;
+
+        return response()->json([
+            'success' => true,
+            'date'    => $today,
+            'truck_1' => $formatTraffic($t1),
+            'truck_2' => $formatTraffic($t2),
         ]);
     }
 

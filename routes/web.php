@@ -45,6 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/cctv-monitoring', [CctvMonitoringController::class, 'index'])->name('cctv.monitoring');
     Route::get('/api/cctv/stream-data', [CctvMonitoringController::class, 'getStreamData']);
     Route::get('/api/cctv/truck/{truckId}', [CctvMonitoringController::class, 'getTruckStreamData']);
+    Route::get('/api/cctv/traffic-db', [CctvMonitoringController::class, 'getTrafficFromDb']); // Traffic dari DB lokal
     Route::post('/api/cctv/snapshot', [CctvMonitoringController::class, 'takeSnapshot']);
     Route::post('/api/cctv/ptz', [CctvMonitoringController::class, 'handlePtz']);
     Route::match(['get', 'post'], '/api/cctv/webrtc', [CctvMonitoringController::class, 'webrtc']);

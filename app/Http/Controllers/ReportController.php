@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\AiTrafficDailyLog;
 use App\Services\HolowitsService;
 use App\Services\Vnnox\VnnoxPlaylogService;
 use App\Services\FoxloggerService;
@@ -37,115 +38,74 @@ class ReportController extends Controller
         $dateFrom = $request->query('date_from', now()->format('Y-m-d'));
         $dateTo = $request->query('date_to', now()->format('Y-m-d'));
         $tab = $request->query('tab', 'overview');
-
-        // 1. Fetch Real AI Traffic Analytics from Holowits NVR Service (instant cache on page view)
         $isExport = $request->routeIs('*.export*') || $request->has('export');
-        $liveData = $isExport 
-            ? $this->holowits->getLiveMonitoringData() 
-            : Cache::get('holowits_truck_statuses', ['summary' => [], 'trucks' => []]);
-        $grandSummary = $liveData['summary'] ?? [
-            'total_motorcycles' => 0,
-            'total_cars' => 0,
-            'total_pedestrians' => 0,
-            'total_buses' => 0,
-            'grand_total_traffic' => 0,
+
+        // 1. Fetch AI Traffic Analytics dari database lokal (cron selalu update, tidak perlu NVR API)
+        $allLogs = AiTrafficDailyLog::whereBetween('log_date', [$dateFrom, $dateTo])->get();
+
+        $truck1Logs = $allLogs->where('truck_id', 'truck_1');
+        $truck2Logs = $allLogs->where('truck_id', 'truck_2');
+
+        $truck1Traffic = [
+            'motorcycles'    => (int)$truck1Logs->sum('motorcycles'),
+            'cars'           => (int)$truck1Logs->sum('cars'),
+            'pedestrians'    => (int)$truck1Logs->sum('pedestrians'),
+            'buses_trucks'   => (int)$truck1Logs->sum('buses_trucks'),
+            'estimated_reach'=> (int)$truck1Logs->sum('estimated_reach'),
         ];
 
-        $truck1Traffic = $liveData['trucks']['truck_1']['traffic'] ?? [
-            'motorcycles' => 0,
-            'cars' => 0,
-            'pedestrians' => 0,
-            'buses_trucks' => 0,
-            'estimated_reach' => 0,
+        $truck2Traffic = [
+            'motorcycles'    => (int)$truck2Logs->sum('motorcycles'),
+            'cars'           => (int)$truck2Logs->sum('cars'),
+            'pedestrians'    => (int)$truck2Logs->sum('pedestrians'),
+            'buses_trucks'   => (int)$truck2Logs->sum('buses_trucks'),
+            'estimated_reach'=> (int)$truck2Logs->sum('estimated_reach'),
         ];
 
-        $truck2Traffic = $liveData['trucks']['truck_2']['traffic'] ?? [
-            'motorcycles' => 0,
-            'cars' => 0,
-            'pedestrians' => 0,
-            'buses_trucks' => 0,
-            'estimated_reach' => 0,
-        ];
+        $totalMotor = $truck1Traffic['motorcycles'] + $truck2Traffic['motorcycles'];
+        $totalCars  = $truck1Traffic['cars'] + $truck2Traffic['cars'];
+        $totalPeds  = $truck1Traffic['pedestrians'] + $truck2Traffic['pedestrians'];
+        $totalBuses = $truck1Traffic['buses_trucks'] + $truck2Traffic['buses_trucks'];
 
-        // Background auto-archive live traffic to DB for today
-        try {
-            \App\Models\AiTrafficDailyLog::recordTraffic('truck_1', date('Y-m-d'), $truck1Traffic, 'B 9731 JXS');
-            \App\Models\AiTrafficDailyLog::recordTraffic('truck_2', date('Y-m-d'), $truck2Traffic, 'B 9729 JXS');
-        } catch (\Throwable $e) {}
-
-        // If date filter is in the past, sum up from database archive
-        $isTodayOnly = ($dateFrom === date('Y-m-d') && $dateTo === date('Y-m-d'));
-        if (!$isTodayOnly) {
-            $query = \App\Models\AiTrafficDailyLog::whereBetween('log_date', [$dateFrom, $dateTo]);
-            if ($truckFilter !== 'all') {
-                $query->where('truck_id', $truckFilter);
-            }
-            $archivedLogs = $query->get();
-
-            if ($archivedLogs->count() > 0) {
-                $dbMotor = $archivedLogs->sum('motorcycles');
-                $dbCars = $archivedLogs->sum('cars');
-                $dbPeds = $archivedLogs->sum('pedestrians');
-                $dbBuses = $archivedLogs->sum('buses_trucks');
-                $dbTotal = $dbMotor + $dbCars + $dbPeds + $dbBuses;
-
-                $grandSummary = [
-                    'total_motorcycles' => $dbMotor,
-                    'total_cars' => $dbCars,
-                    'total_pedestrians' => $dbPeds,
-                    'total_buses' => $dbBuses,
-                    'grand_total_traffic' => $dbTotal,
-                ];
-            }
-        }
-
-        // If grandSummary is missing keys or empty, guarantee all keys exist with 0
         $grandSummary = [
-            'total_motorcycles' => $grandSummary['total_motorcycles'] ?? 0,
-            'total_cars' => $grandSummary['total_cars'] ?? 0,
-            'total_pedestrians' => $grandSummary['total_pedestrians'] ?? 0,
-            'total_buses' => $grandSummary['total_buses'] ?? 0,
-            'grand_total_traffic' => $grandSummary['grand_total_traffic'] ?? 0,
+            'total_motorcycles'   => $totalMotor,
+            'total_cars'          => $totalCars,
+            'total_pedestrians'   => $totalPeds,
+            'total_buses'         => $totalBuses,
+            'grand_total_traffic' => $totalMotor + $totalCars + $totalPeds + $totalBuses,
         ];
 
         if ($truckFilter === 'truck_1') {
             $trafficSummary = [
-                'total_motorcycles' => $truck1Traffic['motorcycles'] ?? 0,
-                'total_cars' => $truck1Traffic['cars'] ?? 0,
-                'total_pedestrians' => $truck1Traffic['pedestrians'] ?? 0,
-                'total_buses' => $truck1Traffic['buses_trucks'] ?? 0,
-                'grand_total_traffic' => ($truck1Traffic['motorcycles'] ?? 0) + ($truck1Traffic['cars'] ?? 0) + ($truck1Traffic['pedestrians'] ?? 0) + ($truck1Traffic['buses_trucks'] ?? 0),
+                'total_motorcycles'   => $truck1Traffic['motorcycles'],
+                'total_cars'          => $truck1Traffic['cars'],
+                'total_pedestrians'   => $truck1Traffic['pedestrians'],
+                'total_buses'         => $truck1Traffic['buses_trucks'],
+                'grand_total_traffic' => $truck1Traffic['motorcycles'] + $truck1Traffic['cars'] + $truck1Traffic['pedestrians'] + $truck1Traffic['buses_trucks'],
             ];
         } elseif ($truckFilter === 'truck_2') {
             $trafficSummary = [
-                'total_motorcycles' => $truck2Traffic['motorcycles'] ?? 0,
-                'total_cars' => $truck2Traffic['cars'] ?? 0,
-                'total_pedestrians' => $truck2Traffic['pedestrians'] ?? 0,
-                'total_buses' => $truck2Traffic['buses_trucks'] ?? 0,
-                'grand_total_traffic' => ($truck2Traffic['motorcycles'] ?? 0) + ($truck2Traffic['cars'] ?? 0) + ($truck2Traffic['pedestrians'] ?? 0) + ($truck2Traffic['buses_trucks'] ?? 0),
+                'total_motorcycles'   => $truck2Traffic['motorcycles'],
+                'total_cars'          => $truck2Traffic['cars'],
+                'total_pedestrians'   => $truck2Traffic['pedestrians'],
+                'total_buses'         => $truck2Traffic['buses_trucks'],
+                'grand_total_traffic' => $truck2Traffic['motorcycles'] + $truck2Traffic['cars'] + $truck2Traffic['pedestrians'] + $truck2Traffic['buses_trucks'],
             ];
         } else {
             $trafficSummary = $grandSummary;
         }
 
+        // Hourly traffic distribution (estimasi berdasarkan bobot jam operasional)
         $hourlyTraffic = [];
-        $hours = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+        $hours   = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
         $weights = [0.02, 0.05, 0.09, 0.08, 0.06, 0.05, 0.07, 0.06, 0.05, 0.07, 0.09, 0.12, 0.09, 0.05, 0.03, 0.02];
-
         foreach ($hours as $idx => $hour) {
-            $weight = $weights[$idx] ?? 0.05;
-            $m = (int)round(($trafficSummary['total_motorcycles'] ?? 0) * $weight);
-            $c = (int)round(($trafficSummary['total_cars'] ?? 0) * $weight);
-            $p = (int)round(($trafficSummary['total_pedestrians'] ?? 0) * $weight);
-            $b = (int)round(($trafficSummary['total_buses'] ?? 0) * $weight);
-            $hourlyTraffic[] = [
-                'time' => $hour,
-                'motorcycles' => $m,
-                'cars' => $c,
-                'pedestrians' => $p,
-                'buses' => $b,
-                'total' => $m + $c + $p + $b,
-            ];
+            $w = $weights[$idx] ?? 0.05;
+            $m = (int)round(($trafficSummary['total_motorcycles'] ?? 0) * $w);
+            $c = (int)round(($trafficSummary['total_cars']         ?? 0) * $w);
+            $p = (int)round(($trafficSummary['total_pedestrians']  ?? 0) * $w);
+            $b = (int)round(($trafficSummary['total_buses']        ?? 0) * $w);
+            $hourlyTraffic[] = ['time' => $hour, 'motorcycles' => $m, 'cars' => $c, 'pedestrians' => $p, 'buses' => $b, 'total' => $m + $c + $p + $b];
         }
 
         // 2. Fetch Playlog Data: Check Database Archive First, Fallback to Cache/Live VNNOX Service

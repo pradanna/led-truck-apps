@@ -32,8 +32,15 @@ import AppLayout from '../Layouts/AppLayout';
 import WebRtcPlayer from '../Components/WebRtcPlayer';
 import { CctvCameraCardSkeleton } from '../Components/DashboardSkeleton';
 
-export default function CctvMonitoring({ monitoringData = null }) {
+export default function CctvMonitoring({ monitoringData = null, trafficSummary = null }) {
   const [data, setData] = useState(monitoringData || {});
+
+  // Traffic state dari DB lokal (bukan NVR API)
+  const [dbTraffic, setDbTraffic] = useState({
+    truck_1: trafficSummary?.truck_1 || null,
+    truck_2: trafficSummary?.truck_2 || null,
+  });
+  const [isDbTrafficLoading, setIsDbTrafficLoading] = useState(!trafficSummary);
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'truck_1', 'truck_2'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeModal, setActiveModal] = useState(null); // 'settings'
@@ -74,7 +81,7 @@ export default function CctvMonitoring({ monitoringData = null }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Parallel & Isolated Micro-fetch for Truk 01 and Truk 02
+  // Parallel & Isolated Micro-fetch untuk Truk 01 dan Truk 02 (status kamera NVR saja)
   useEffect(() => {
     const controller = new AbortController();
 
@@ -85,7 +92,7 @@ export default function CctvMonitoring({ monitoringData = null }) {
         if (resJson.success && resJson.data) {
           setData(prev => {
             const next = { ...prev, truck_1: resJson.data };
-            // Update summary
+            // Update summary (untuk estimasi reach dll, bukan traffic count)
             const t1 = resJson.data?.traffic || {};
             const t2 = prev?.truck_2?.traffic || {};
             next.summary = {
@@ -133,6 +140,37 @@ export default function CctvMonitoring({ monitoringData = null }) {
 
     return () => controller.abort(); // Auto abort saat pindah menu
   }, []);
+
+  // Poll traffic data dari DATABASE LOKAL setiap 60 detik (bukan dari NVR API)
+  useEffect(() => {
+    // Jika belum ada data awal (trafficSummary null dari server), langsung fetch
+    if (!trafficSummary) {
+      fetch('/api/cctv/traffic-db')
+        .then(res => res.json())
+        .then(res => {
+          if (res.success) {
+            setDbTraffic({ truck_1: res.truck_1, truck_2: res.truck_2 });
+          }
+        })
+        .catch(() => {})
+        .finally(() => setIsDbTrafficLoading(false));
+    }
+
+    // Poll setiap 60 detik
+    const dbPollInterval = setInterval(() => {
+      fetch('/api/cctv/traffic-db')
+        .then(res => res.json())
+        .then(res => {
+          if (res.success) {
+            setDbTraffic({ truck_1: res.truck_1, truck_2: res.truck_2 });
+          }
+        })
+        .catch(() => {});
+    }, 60000);
+
+    return () => clearInterval(dbPollInterval);
+  }, []);
+
 
   // Poll traffic & NVR telemetry data every 30 seconds
   useEffect(() => {
@@ -532,39 +570,37 @@ export default function CctvMonitoring({ monitoringData = null }) {
 
       {/* REAL-TIME AI TRAFFIC ANALYTICS BAR (DATA DARI API DINAMIS MENGIKUTI FILTER) */}
       {(() => {
-        // Hitung metrik dinamis berdasarkan filter aktif: 'all', 'truck_1', 'truck_2'
+        // Hitung metrik dari DATABASE LOKAL berdasarkan filter aktif
         let currentMotor = 0;
-        let currentCar = 0;
-        let currentPed = 0;
-        let currentBus = 0;
+        let currentCar   = 0;
+        let currentPed   = 0;
+        let currentBus   = 0;
         let currentTotal = 0;
 
-        const t1Traffic = truck1?.traffic || {};
-        const t2Traffic = truck2?.traffic || {};
+        const t1Traffic = dbTraffic?.truck_1 || {};
+        const t2Traffic = dbTraffic?.truck_2 || {};
 
         if (activeFilter === 'truck_1') {
           currentMotor = t1Traffic.motorcycles || 0;
-          currentCar = t1Traffic.cars || 0;
-          currentPed = t1Traffic.pedestrians || 0;
-          currentBus = t1Traffic.buses_trucks || 0;
-          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+          currentCar   = t1Traffic.cars || 0;
+          currentPed   = t1Traffic.pedestrians || 0;
+          currentBus   = t1Traffic.buses_trucks || 0;
+          currentTotal = t1Traffic.total_traffic || (currentMotor + currentCar + currentPed + currentBus);
         } else if (activeFilter === 'truck_2') {
           currentMotor = t2Traffic.motorcycles || 0;
-          currentCar = t2Traffic.cars || 0;
-          currentPed = t2Traffic.pedestrians || 0;
-          currentBus = t2Traffic.buses_trucks || 0;
-          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+          currentCar   = t2Traffic.cars || 0;
+          currentPed   = t2Traffic.pedestrians || 0;
+          currentBus   = t2Traffic.buses_trucks || 0;
+          currentTotal = t2Traffic.total_traffic || (currentMotor + currentCar + currentPed + currentBus);
         } else {
           currentMotor = (t1Traffic.motorcycles || 0) + (t2Traffic.motorcycles || 0);
-          currentCar = (t1Traffic.cars || 0) + (t2Traffic.cars || 0);
-          currentPed = (t1Traffic.pedestrians || 0) + (t2Traffic.pedestrians || 0);
-          currentBus = (t1Traffic.buses_trucks || 0) + (t2Traffic.buses_trucks || 0);
-          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+          currentCar   = (t1Traffic.cars || 0) + (t2Traffic.cars || 0);
+          currentPed   = (t1Traffic.pedestrians || 0) + (t2Traffic.pedestrians || 0);
+          currentBus   = (t1Traffic.buses_trucks || 0) + (t2Traffic.buses_trucks || 0);
+          currentTotal = (t1Traffic.total_traffic || 0) + (t2Traffic.total_traffic || 0);
         }
 
-        const isCurrentLoading = (activeFilter === 'truck_1' && isTruck1Loading) ||
-                                (activeFilter === 'truck_2' && isTruck2Loading) ||
-                                (activeFilter === 'all' && (isTruck1Loading || isTruck2Loading));
+        const isCurrentLoading = isDbTrafficLoading;
 
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
@@ -584,7 +620,7 @@ export default function CctvMonitoring({ monitoringData = null }) {
                     currentMotor
                   )}
                 </div>
-                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Unit terhitung NVR API</div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Data hari ini dari database</div>
               </div>
             </div>
 

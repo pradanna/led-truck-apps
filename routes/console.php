@@ -5,12 +5,12 @@ use Illuminate\Support\Facades\Artisan;
 
 use Illuminate\Support\Facades\Schedule;
 
-// 1. Sinkronisasi Rutin Data GPS Armada Tiap Menit (Fallback/Auto-update)
-Schedule::command('gps:sync-daily --days=1')
+// 1. Sinkronisasi Rutin Data GPS Armada Tiap Menit (Tarik Hari Ini & Kemarin agar data malam hari tidak terlewat)
+Schedule::command('gps:sync-daily --days=2')
     ->everyMinute()
     ->timezone('Asia/Jakarta')
     ->withoutOverlapping()
-    ->description('Sinkronisasi otomatis titik GPS aktif armada tiap menit ke database');
+    ->description('Sinkronisasi otomatis titik GPS aktif armada hari ini & kemarin ke database');
 
 // 2. Sinkronisasi & Arsip Statistik AI Traffic NVR
 Schedule::command('traffic:sync-daily')

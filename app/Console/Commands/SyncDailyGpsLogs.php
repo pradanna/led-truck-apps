@@ -66,7 +66,8 @@ class SyncDailyGpsLogs extends Command
             foreach ($trucks as $truck) {
                 $this->output->write(" -> Syncing {$truck['name']} ({$truck['plate']} - {$truck['imei']})... ");
                 
-                $history = $foxlogger->getGpsHistory($truck['imei'], $curDate);
+                // Force refresh to pull directly from Foxlogger API (bypassing local cache/checks)
+                $history = $foxlogger->getGpsHistory($truck['imei'], $curDate, true);
                 $count = count($history);
 
                 if ($count > 0) {

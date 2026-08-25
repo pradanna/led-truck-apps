@@ -111,9 +111,9 @@ webrtc:
 
 streams:
   truck_1_ch1:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=1#backchannel=0
   truck_1_ch2:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=1#backchannel=0
 
   truck_2_ch1:
     - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
@@ -125,8 +125,8 @@ YAML;
 
         // HOT-RELOAD: Push new stream URLs directly to running go2rtc instance via REST API
         $streamsToPush = [
-            'truck_1_ch1' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
-            'truck_1_ch2' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
+            'truck_1_ch1' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=1#backchannel=0",
+            'truck_1_ch2' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=1#backchannel=0",
             'truck_2_ch1' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
             'truck_2_ch2' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
         ];

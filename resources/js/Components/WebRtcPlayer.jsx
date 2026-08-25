@@ -180,6 +180,19 @@ export default function WebRtcPlayer({
                 }))
                 .then(() => {
                     const constrainedSdp = constrainSdpBandwidth(pc.localDescription.sdp, 1500);
+                    const isHttps = window.location.protocol === 'https:';
+
+                    // If page is on HTTPS, direct HTTP to go2rtc:1984 is blocked (Mixed Content).
+                    // Always use the Laravel HTTPS proxy in that case.
+                    if (isHttps) {
+                        return fetch(`/api/cctv/webrtc?src=${encodeURIComponent(streamKey)}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/sdp' },
+                            body: constrainedSdp
+                        });
+                    }
+
+                    // HTTP / local dev: try direct go2rtc first, fallback to proxy
                     return fetch(`http://${window.location.hostname}:1984/api/webrtc?src=${encodeURIComponent(streamKey)}`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/sdp' },

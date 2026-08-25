@@ -42,7 +42,7 @@ class HolowitsService
                 'password' => $cfgT2['password'] ?? env('HOLOWITS_T2_PASS', ''),
                 'channels' => [
                     'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
-                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
+                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera AI (Arah Jalan / Front View)', 'type' => 'front_view'],
                 ]
             ]
         ];
@@ -111,9 +111,9 @@ webrtc:
 
 streams:
   truck_1_ch1:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=1#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0
   truck_1_ch2:
-    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=1#backchannel=0
+    - rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
 
   truck_2_ch1:
     - rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0
@@ -125,8 +125,8 @@ YAML;
 
         // HOT-RELOAD: Push new stream URLs directly to running go2rtc instance via REST API
         $streamsToPush = [
-            'truck_1_ch1' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=1#backchannel=0",
-            'truck_1_ch2' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=1#backchannel=0",
+            'truck_1_ch1' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
+            'truck_1_ch2' => "rtsp://{$t1User}:{$t1Pass}@{$t1Ip}:{$t1Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
             'truck_2_ch1' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=2&subtype=0#backchannel=0",
             'truck_2_ch2' => "rtsp://{$t2User}:{$t2Pass}@{$t2Ip}:{$t2Rtsp}/rtsp/streaming?channel=1&subtype=0#backchannel=0",
         ];
@@ -284,7 +284,7 @@ YAML;
                     ],
                     'CH2' => [
                         'id' => 'CH2',
-                        'name' => 'Kamera Depan (Traffic & AI)',
+                        'name' => 'Kamera AI (Traffic & AI)',
                         'type' => 'traffic',
                         'status' => 'ONLINE',
                         'fps' => 25,
@@ -457,7 +457,7 @@ YAML;
             ],
             'CH2' => [
                 'id' => 'CH2',
-                'name' => 'Kamera Depan (Traffic & AI)',
+                'name' => 'Kamera AI (Traffic & AI)',
                 'type' => 'traffic',
                 'status' => 'DISCONNECTED',
                 'status_reason' => $reason,

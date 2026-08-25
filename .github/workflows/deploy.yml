@@ -63,32 +63,37 @@ jobs:
             echo "📊 Changes - Frontend: $FRONTEND_CHANGED | PHP: $PHP_CHANGED | Migrations: $MIGRATIONS_CHANGED"
             cd ${{ secrets.VPS_PATH }}
 
-            # Validasi: pastikan .env ada
+            # ── Validasi .env ───────────────────────────────────────────
             if [ ! -f ".env" ]; then
-              echo "❌ ERROR: File .env tidak ditemukan di server!"
-              echo "   Jalankan: scp .env.production ubuntu@SERVER_IP:/var/www/youseemobileled.com/.env"
+              echo "❌ File .env tidak ditemukan!"
+              echo "   Upload dulu: scp .env.production ubuntu@103.93.129.80:/var/www/youseemobileled.com/.env"
               exit 1
             fi
+            echo "✅ .env ditemukan"
 
+            # ── Pull latest code ────────────────────────────────────────
             echo "📦 Pulling latest code..."
             git pull origin main
 
-            if [ "$PHP_CHANGED" -gt "0" ]; then
-              echo "🔧 PHP changed - running composer install..."
+            # ── Composer: jalankan jika vendor/ belum ada ATAU php berubah
+            if [ ! -d "vendor" ] || [ "$PHP_CHANGED" -gt "0" ]; then
+              echo "🔧 Running composer install..."
               composer install --no-dev --optimize-autoloader --no-interaction
               php artisan optimize:clear
             else
-              echo "⏩ No PHP changes - skipping composer"
+              echo "⏩ vendor/ sudah ada & tidak ada PHP changes - skipping composer"
             fi
 
-            if [ "$FRONTEND_CHANGED" -gt "0" ]; then
-              echo "🎨 Frontend changed - building assets..."
+            # ── NPM: jalankan jika node_modules/ belum ada ATAU frontend berubah
+            if [ ! -d "node_modules" ] || [ "$FRONTEND_CHANGED" -gt "0" ]; then
+              echo "🎨 Running npm install & build..."
               npm ci --prefer-offline
               npm run build
             else
-              echo "⏩ No frontend changes - skipping npm build"
+              echo "⏩ node_modules/ sudah ada & tidak ada frontend changes - skipping npm"
             fi
 
+            # ── Migrations ──────────────────────────────────────────────
             if [ "$MIGRATIONS_CHANGED" -gt "0" ]; then
               echo "🗄️  New migrations - running migrate..."
               php artisan migrate --force
@@ -96,6 +101,7 @@ jobs:
               echo "⏩ No new migrations"
             fi
 
+            # ── Cache artisan ───────────────────────────────────────────
             echo "⚡ Caching config, routes, views..."
             php artisan config:cache
             php artisan route:cache

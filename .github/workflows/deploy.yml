@@ -1,0 +1,108 @@
+﻿name: 🚀 Deploy to VPS
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent deployments
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy LED-FLX to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ------------------------------------------------------------------ #
+      # 1. Checkout kode dengan kedalaman 2 commit (untuk diff detection)   #
+      # ------------------------------------------------------------------ #
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # ------------------------------------------------------------------ #
+      # 2. Deteksi file apa yang berubah                                    #
+      # ------------------------------------------------------------------ #
+      - name: 🔍 Detect changed files
+        id: changes
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          echo "--- Changed files ---"
+          echo "$CHANGED"
+          echo "---------------------"
+
+          FRONTEND_COUNT=$(echo "$CHANGED" | grep -E '\.(jsx?|tsx?|css|vue)$' | wc -l | tr -d ' ')
+          echo "frontend=$FRONTEND_COUNT" >> $GITHUB_OUTPUT
+
+          PHP_COUNT=$(echo "$CHANGED" | grep -E '(\.php$|composer\.json$|composer\.lock$)' | wc -l | tr -d ' ')
+          echo "php=$PHP_COUNT" >> $GITHUB_OUTPUT
+
+          MIGRATION_COUNT=$(echo "$CHANGED" | grep 'database/migrations/' | wc -l | tr -d ' ')
+          echo "migrations=$MIGRATION_COUNT" >> $GITHUB_OUTPUT
+
+          echo "Frontend: $FRONTEND_COUNT | PHP: $PHP_COUNT | Migrations: $MIGRATION_COUNT"
+
+      # ------------------------------------------------------------------ #
+      # 3. Deploy ke VPS via SSH                                            #
+      # ------------------------------------------------------------------ #
+      - name: 🔐 Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          FRONTEND_CHANGED: ${{ steps.changes.outputs.frontend }}
+          PHP_CHANGED: ${{ steps.changes.outputs.php }}
+          MIGRATIONS_CHANGED: ${{ steps.changes.outputs.migrations }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          envs: FRONTEND_CHANGED,PHP_CHANGED,MIGRATIONS_CHANGED
+          script_stop: true
+          script: |
+            set -e
+            echo "🚀 Starting deployment..."
+            cd ${{ secrets.VPS_PATH }}
+
+            echo "📦 Pulling latest code..."
+            git pull origin main
+
+            if [ "$PHP_CHANGED" -gt "0" ]; then
+              echo "🔧 PHP changed - running composer install..."
+              composer install --no-dev --optimize-autoloader --no-interaction
+              php artisan optimize:clear
+            else
+              echo "⏩ No PHP changes - skipping composer"
+            fi
+
+            if [ "$FRONTEND_CHANGED" -gt "0" ]; then
+              echo "🎨 Frontend changed - building assets..."
+              npm ci --prefer-offline
+              npm run build
+            else
+              echo "⏩ No frontend changes - skipping npm build"
+            fi
+
+            if [ "$MIGRATIONS_CHANGED" -gt "0" ]; then
+              echo "🗄️  New migrations - running migrate..."
+              php artisan migrate --force
+            else
+              echo "⏩ No new migrations"
+            fi
+
+            echo "⚡ Caching config, routes, views..."
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Uncomment jika pakai PHP-FPM:
+            # sudo systemctl reload php8.2-fpm
+
+            # Uncomment jika pakai queue worker via Supervisor:
+            # php artisan queue:restart
+
+            echo ""
+            echo "✅ Deploy selesai: $(date '+%Y-%m-%d %H:%M:%S %Z')"

@@ -51,10 +51,9 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT }}
           envs: FRONTEND_CHANGED,PHP_CHANGED,MIGRATIONS_CHANGED
-          script_stop: true
+          script_stop: false  # Biarkan bash 'set -e' yang handle, bukan drone-ssh
           script: |
-            set -e
-            set -x  # Debug: tampilkan setiap perintah yang dijalankan
+            set -e  # Stop on error (bash native, tidak ganggu if-conditions)
 
             # Export PATH agar composer/php/npm tersedia di non-interactive shell
             export PATH="$PATH:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin"

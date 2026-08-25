@@ -32,8 +32,8 @@ import AppLayout from '../Layouts/AppLayout';
 import WebRtcPlayer from '../Components/WebRtcPlayer';
 import { CctvCameraCardSkeleton } from '../Components/DashboardSkeleton';
 
-export default function CctvMonitoring({ monitoringData = {} }) {
-  const [data, setData] = useState(monitoringData);
+export default function CctvMonitoring({ monitoringData = null }) {
+  const [data, setData] = useState(monitoringData || {});
   const [activeFilter, setActiveFilter] = useState('all'); // 'all', 'truck_1', 'truck_2'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeModal, setActiveModal] = useState(null); // 'settings'
@@ -42,13 +42,13 @@ export default function CctvMonitoring({ monitoringData = {} }) {
   const [fullscreenCam, setFullscreenCam] = useState(null);
   const [fullscreenState, setFullscreenState] = useState('connected');
 
-  // Isolated loading states per truck: default true if truck data not yet loaded from client fetch
+  // Isolated loading states per truck: strictly true at start
   const [isTruck1Loading, setIsTruck1Loading] = useState(true);
   const [isTruck2Loading, setIsTruck2Loading] = useState(true);
 
-  const truck1 = data?.truck_1 || {};
-  const truck2 = data?.truck_2 || {};
-  const summary = data?.summary || {};
+  const truck1 = data?.truck_1 || null;
+  const truck2 = data?.truck_2 || null;
+  const summary = data?.summary || null;
 
   // Form State for Settings Modal
   const [formSettings, setFormSettings] = useState({
@@ -359,7 +359,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
       truckName: t1Config.name || 'Truk LED 01',
       truckIp: t1Config.nvr_ip || '103.144.175.22',
       channelId: 'CH2',
-      channelName: ch2_t1.name || 'Kamera Depan (Traffic & AI)',
+      channelName: ch2_t1.name || 'Kamera AI (Traffic Analytics)',
       type: 'TRAFFIC_AI',
       online: t1Online,
       status: ch2_t1.status || (t1Online ? 'ONLINE' : 'DISCONNECTED'),
@@ -402,7 +402,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
       truckName: t2Config.name || 'Truk LED 02',
       truckIp: t2Config.nvr_ip || '103.144.175.28',
       channelId: 'CH2',
-      channelName: ch2_t2.name || 'Kamera Depan (Traffic & AI)',
+      channelName: ch2_t2.name || 'Kamera AI (Traffic Analytics)',
       type: 'TRAFFIC_AI',
       online: t2Online,
       status: ch2_t2.status || (t2Online ? 'ONLINE' : 'DISCONNECTED'),
@@ -544,7 +544,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
 
         const isCurrentLoading = (activeFilter === 'truck_1' && isTruck1Loading) ||
                                 (activeFilter === 'truck_2' && isTruck2Loading) ||
-                                (activeFilter === 'all' && (isTruck1Loading && isTruck2Loading));
+                                (activeFilter === 'all' && (isTruck1Loading || isTruck2Loading));
 
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
@@ -1246,7 +1246,7 @@ export default function CctvMonitoring({ monitoringData = {} }) {
                   <span className="font-mono text-blue-600 font-bold">LiveStream/CH1/main</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>· <strong>CH2</strong>: Kamera Depan (Trafik & AI)</span>
+                  <span>· <strong>CH2</strong>: Kamera AI (Traffic Analytics)</span>
                   <span className="font-mono text-blue-600 font-bold">LiveStream/CH2/main</span>
                 </div>
               </div>

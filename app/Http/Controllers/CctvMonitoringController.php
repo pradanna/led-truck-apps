@@ -22,10 +22,8 @@ class CctvMonitoringController extends Controller
      */
     public function index(Request $request): Response
     {
-        $monitoringData = \Illuminate\Support\Facades\Cache::get('holowits_truck_statuses', []);
-
         return Inertia::render('CctvMonitoring', [
-            'monitoringData' => $monitoringData,
+            'monitoringData' => null,
         ]);
     }
 

@@ -28,8 +28,8 @@ class HolowitsService
                 'username' => $cfgT1['username'] ?? env('HOLOWITS_T1_USER', 'admin'),
                 'password' => $cfgT1['password'] ?? env('HOLOWITS_T1_PASS', ''),
                 'channels' => [
-                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Traffic AI & Layar LED)', 'type' => 'traffic'],
-                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera Depan (Arah Jalan / Front View)', 'type' => 'front_view'],
+                    'CH1' => ['id' => 'CH1', 'name' => 'Kamera Belakang (Layar LED)', 'type' => 'led_screen'],
+                    'CH2' => ['id' => 'CH2', 'name' => 'Kamera AI (Traffic Analytics)', 'type' => 'traffic_ai'],
                 ]
             ],
             'truck_2' => [
@@ -320,7 +320,7 @@ YAML;
                             $todayStart = date('Y-m-d 00:00:00');
                             $todayEnd = date('Y-m-d 23:59:59');
 
-                            // Query real Target Snapshots Search count from NVR CH1
+                            // Query real Target Snapshots Search count from active NVR channels [1, 2]
                             $searchResp = Http::timeout(3)
                                 ->withoutVerifying()
                                 ->withHeaders([
@@ -330,7 +330,7 @@ YAML;
                                 ->post("{$baseUrl}/API/AI/SnapedFaces/Search", [
                                     'version' => '1.0',
                                     'data' => [
-                                        'Channel' => [1],
+                                        'Channel' => [1, 2],
                                         'StartTime' => $todayStart,
                                         'EndTime' => $todayEnd,
                                         'StartIndex' => 0,

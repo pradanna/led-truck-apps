@@ -46,9 +46,9 @@ export default function CctvMonitoring({ monitoringData = null }) {
   const [isTruck1Loading, setIsTruck1Loading] = useState(true);
   const [isTruck2Loading, setIsTruck2Loading] = useState(true);
 
-  const truck1 = data?.truck_1 || null;
-  const truck2 = data?.truck_2 || null;
-  const summary = data?.summary || null;
+  const truck1 = data?.truck_1 || {};
+  const truck2 = data?.truck_2 || {};
+  const summary = data?.summary || {};
 
   // Form State for Settings Modal
   const [formSettings, setFormSettings] = useState({

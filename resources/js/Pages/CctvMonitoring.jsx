@@ -141,7 +141,27 @@ export default function CctvMonitoring({ monitoringData = null }) {
         .then(res => res.json())
         .then(resData => {
           if (resData.success && resData.data) {
-            setData(resData.data);
+            // Incremental merge — only update trucks that returned valid data
+            // This prevents a single truck timeout from resetting all counts to 0
+            setData(prev => {
+              const next = { ...prev };
+              const incoming = resData.data;
+
+              // Only update truck_1 if response has real data (online or explicit offline)
+              if (incoming.truck_1) {
+                next.truck_1 = incoming.truck_1;
+              }
+              // Only update truck_2 if response has real data
+              if (incoming.truck_2) {
+                next.truck_2 = incoming.truck_2;
+              }
+              // Always update summary when full data is present
+              if (incoming.summary) {
+                next.summary = incoming.summary;
+              }
+
+              return next;
+            });
           }
         })
         .catch(err => console.error("Poll CCTV error:", err));

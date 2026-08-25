@@ -546,10 +546,7 @@ YAML;
      */
     protected function getHolowitsAuthenticatedSession(string $baseUrl, string $user, string $password): ?array
     {
-        $cacheKey = 'holowits_session_' . md5($baseUrl . $user);
-        if ($cached = Cache::get($cacheKey)) {
-            return $cached;
-        }
+        // No caching — always perform fresh Digest Auth to NVR on every request
 
         try {
             $uri = '/API/Web/Login';
@@ -627,7 +624,6 @@ YAML;
                     'csrf_token' => $csrfToken,
                 ];
 
-                Cache::put($cacheKey, $sessionData, now()->addMinutes(10));
                 return $sessionData;
             }
         } catch (\Throwable $e) {

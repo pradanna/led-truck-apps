@@ -93,7 +93,8 @@ export default function CctvMonitoring({ monitoringData = {} }) {
               total_cars: (t1.cars || 0) + (t2.cars || 0),
               total_pedestrians: (t1.pedestrians || 0) + (t2.pedestrians || 0),
               total_buses: (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
-              grand_total_traffic: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
+              grand_total_traffic: (t1.motorcycles || 0) + (t2.motorcycles || 0) + (t1.cars || 0) + (t2.cars || 0) + (t1.pedestrians || 0) + (t2.pedestrians || 0) + (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
+              total_audience_reach: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
             };
             return next;
           });
@@ -118,7 +119,8 @@ export default function CctvMonitoring({ monitoringData = {} }) {
               total_cars: (t1.cars || 0) + (t2.cars || 0),
               total_pedestrians: (t1.pedestrians || 0) + (t2.pedestrians || 0),
               total_buses: (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
-              grand_total_traffic: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
+              grand_total_traffic: (t1.motorcycles || 0) + (t2.motorcycles || 0) + (t1.cars || 0) + (t2.cars || 0) + (t1.pedestrians || 0) + (t2.pedestrians || 0) + (t1.buses_trucks || 0) + (t2.buses_trucks || 0),
+              total_audience_reach: (t1.estimated_reach || 0) + (t2.estimated_reach || 0),
             };
             return next;
           });
@@ -508,130 +510,148 @@ export default function CctvMonitoring({ monitoringData = {} }) {
         </div>
       </div>
 
-      {/* REAL-TIME AI TRAFFIC ANALYTICS BAR (DATA DARI API) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {/* Card 1: Motor */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Sepeda Motor</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
-              <Gauge className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-amber-600 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.total_motorcycles ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Unit terhitung NVR API</div>
-          </div>
-        </div>
+      {/* REAL-TIME AI TRAFFIC ANALYTICS BAR (DATA DARI API DINAMIS MENGIKUTI FILTER) */}
+      {(() => {
+        // Hitung metrik dinamis berdasarkan filter aktif: 'all', 'truck_1', 'truck_2'
+        let currentMotor = 0;
+        let currentCar = 0;
+        let currentPed = 0;
+        let currentBus = 0;
+        let currentTotal = 0;
 
-        {/* Card 2: Mobil */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Mobil Pribadi</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
-              <Car className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-blue-600 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.total_cars ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan roda 4</div>
-          </div>
-        </div>
+        const t1Traffic = truck1?.traffic || {};
+        const t2Traffic = truck2?.traffic || {};
 
-        {/* Card 3: Orang / Pejalan Kaki */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Pejalan Kaki</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-emerald-600 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.total_pedestrians ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Target orang (Face/Ped)</div>
-          </div>
-        </div>
+        if (activeFilter === 'truck_1') {
+          currentMotor = t1Traffic.motorcycles || 0;
+          currentCar = t1Traffic.cars || 0;
+          currentPed = t1Traffic.pedestrians || 0;
+          currentBus = t1Traffic.buses_trucks || 0;
+          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+        } else if (activeFilter === 'truck_2') {
+          currentMotor = t2Traffic.motorcycles || 0;
+          currentCar = t2Traffic.cars || 0;
+          currentPed = t2Traffic.pedestrians || 0;
+          currentBus = t2Traffic.buses_trucks || 0;
+          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+        } else {
+          currentMotor = (t1Traffic.motorcycles || 0) + (t2Traffic.motorcycles || 0);
+          currentCar = (t1Traffic.cars || 0) + (t2Traffic.cars || 0);
+          currentPed = (t1Traffic.pedestrians || 0) + (t2Traffic.pedestrians || 0);
+          currentBus = (t1Traffic.buses_trucks || 0) + (t2Traffic.buses_trucks || 0);
+          currentTotal = currentMotor + currentCar + currentPed + currentBus;
+        }
 
-        {/* Card 4: Bus & Truk */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Bus & Truk</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
-              <Bus className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-purple-600 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.total_buses ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan besar</div>
-          </div>
-        </div>
+        const isCurrentLoading = (activeFilter === 'truck_1' && isTruck1Loading) ||
+                                (activeFilter === 'truck_2' && isTruck2Loading) ||
+                                (activeFilter === 'all' && (isTruck1Loading && isTruck2Loading));
 
-        {/* Card 5: Total Traffic */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Lalu Lintas</span>
-            <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-200 flex items-center justify-center">
-              <Gauge className="w-4 h-4" />
+        return (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+            {/* Card 1: Motor */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Sepeda Motor</span>
+                <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center">
+                  <Gauge className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl font-black text-amber-600 font-mono">
+                  {isCurrentLoading ? (
+                    <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+                  ) : (
+                    currentMotor
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Unit terhitung NVR API</div>
+              </div>
             </div>
-          </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-cyan-700 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.grand_total_traffic ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-slate-500 font-medium mt-0.5">
-              Akumulasi sensor kamera
-            </div>
-          </div>
-        </div>
 
-        {/* Card 6: Estimasi Exposure Audiens */}
-        <div className="bg-linear-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider">Estimasi Audiens</span>
-            <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center">
-              <Eye className="w-4 h-4" />
+            {/* Card 2: Mobil */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Mobil Pribadi</span>
+                <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 border border-blue-200 flex items-center justify-center">
+                  <Car className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl font-black text-blue-600 font-mono">
+                  {isCurrentLoading ? (
+                    <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+                  ) : (
+                    currentCar
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan roda 4</div>
+              </div>
+            </div>
+
+            {/* Card 3: Orang / Pejalan Kaki */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Pejalan Kaki</span>
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center">
+                  <Users className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl font-black text-emerald-600 font-mono">
+                  {isCurrentLoading ? (
+                    <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+                  ) : (
+                    currentPed
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Target orang (Face/Ped)</div>
+              </div>
+            </div>
+
+            {/* Card 4: Bus & Truk */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Bus & Truk</span>
+                <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 border border-purple-200 flex items-center justify-center">
+                  <Bus className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl font-black text-purple-600 font-mono">
+                  {isCurrentLoading ? (
+                    <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+                  ) : (
+                    currentBus
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 mt-0.5 font-medium">Kendaraan besar</div>
+              </div>
+            </div>
+
+            {/* Card 5: Total Traffic */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col justify-between shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Lalu Lintas</span>
+                <div className="w-7 h-7 rounded-lg bg-cyan-50 text-cyan-600 border border-cyan-200 flex items-center justify-center">
+                  <Gauge className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="mt-2">
+                <div className="text-2xl font-black text-cyan-700 font-mono">
+                  {isCurrentLoading ? (
+                    <div className="h-7 w-16 bg-slate-200 animate-pulse rounded" />
+                  ) : (
+                    currentTotal
+                  )}
+                </div>
+                <div className="text-[10px] text-slate-500 font-medium mt-0.5">
+                  Akumulasi sensor kamera
+                </div>
+              </div>
             </div>
           </div>
-          <div className="mt-2">
-            <div className="text-2xl font-black text-blue-900 font-mono">
-              {isTruck1Loading && isTruck2Loading ? (
-                <div className="h-7 w-20 bg-slate-200 animate-pulse rounded" />
-              ) : (
-                summary?.total_audience_reach ?? 0
-              )}
-            </div>
-            <div className="text-[10px] text-blue-600 font-semibold mt-0.5">Total impresi tayangan</div>
-          </div>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* CCTV STREAM VIDEO GRID (4 CAMERAS) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

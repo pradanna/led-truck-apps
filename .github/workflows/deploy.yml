@@ -30,21 +30,21 @@ jobs:
       - name: 🔍 Detect changed files
         id: changes
         run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD)
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
           echo "--- Changed files ---"
           echo "$CHANGED"
           echo "---------------------"
 
-          FRONTEND_COUNT=$(echo "$CHANGED" | grep -E '\.(jsx?|tsx?|css|vue)$' | wc -l | tr -d ' ')
-          echo "frontend=$FRONTEND_COUNT" >> $GITHUB_OUTPUT
+          FRONTEND_COUNT=$(echo "$CHANGED" | grep -cE '\.(jsx?|tsx?|css|vue)$' || true)
+          echo "frontend=${FRONTEND_COUNT:-0}" >> $GITHUB_OUTPUT
 
-          PHP_COUNT=$(echo "$CHANGED" | grep -E '(\.php$|composer\.json$|composer\.lock$)' | wc -l | tr -d ' ')
-          echo "php=$PHP_COUNT" >> $GITHUB_OUTPUT
+          PHP_COUNT=$(echo "$CHANGED" | grep -cE '(\.php$|composer\.json$|composer\.lock$)' || true)
+          echo "php=${PHP_COUNT:-0}" >> $GITHUB_OUTPUT
 
-          MIGRATION_COUNT=$(echo "$CHANGED" | grep 'database/migrations/' | wc -l | tr -d ' ')
-          echo "migrations=$MIGRATION_COUNT" >> $GITHUB_OUTPUT
+          MIGRATION_COUNT=$(echo "$CHANGED" | grep -c 'database/migrations/' || true)
+          echo "migrations=${MIGRATION_COUNT:-0}" >> $GITHUB_OUTPUT
 
-          echo "Frontend: $FRONTEND_COUNT | PHP: $PHP_COUNT | Migrations: $MIGRATION_COUNT"
+          echo "Frontend: ${FRONTEND_COUNT:-0} | PHP: ${PHP_COUNT:-0} | Migrations: ${MIGRATION_COUNT:-0}"
 
       # ------------------------------------------------------------------ #
       # 3. Deploy ke VPS via SSH                                            #
@@ -64,7 +64,14 @@ jobs:
           script_stop: true
           script: |
             set -e
+
+            # Pastikan nilai default 0 jika variabel kosong
+            FRONTEND_CHANGED=${FRONTEND_CHANGED:-0}
+            PHP_CHANGED=${PHP_CHANGED:-0}
+            MIGRATIONS_CHANGED=${MIGRATIONS_CHANGED:-0}
+
             echo "🚀 Starting deployment..."
+            echo "📊 Changes - Frontend: $FRONTEND_CHANGED | PHP: $PHP_CHANGED | Migrations: $MIGRATIONS_CHANGED"
             cd ${{ secrets.VPS_PATH }}
 
             echo "📦 Pulling latest code..."

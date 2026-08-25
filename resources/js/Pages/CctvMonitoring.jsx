@@ -42,9 +42,9 @@ export default function CctvMonitoring({ monitoringData = {} }) {
   const [fullscreenCam, setFullscreenCam] = useState(null);
   const [fullscreenState, setFullscreenState] = useState('connected');
 
-  // Isolated loading states per truck
-  const [isTruck1Loading, setIsTruck1Loading] = useState(!monitoringData?.truck_1?.channels?.length);
-  const [isTruck2Loading, setIsTruck2Loading] = useState(!monitoringData?.truck_2?.channels?.length);
+  // Isolated loading states per truck: default true if truck data not yet loaded from client fetch
+  const [isTruck1Loading, setIsTruck1Loading] = useState(true);
+  const [isTruck2Loading, setIsTruck2Loading] = useState(true);
 
   const truck1 = data?.truck_1 || {};
   const truck2 = data?.truck_2 || {};

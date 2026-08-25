@@ -169,11 +169,7 @@ YAML;
             ];
         }
 
-        // Quick memory cache per truck to avoid repeating slow timeouts during page loads
-        $cacheKey = "holowits_truck_nvr_status_{$truck['id']}";
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
+        // Always perform real-time fetch strictly from NVR without intermediate status caching
 
         try {
             // Check NVR reachability: Support Holowits & Hikvision ISAPI
@@ -366,7 +362,6 @@ YAML;
                     'channels' => $channels,
                     'traffic' => $trafficData,
                 ];
-                Cache::put($cacheKey, $res, now()->addSeconds(30));
                 return $res;
             } else {
                 $statusMsg = 'NVR Sedang Standby / Menolak Koneksi';
@@ -375,7 +370,7 @@ YAML;
             $statusMsg = 'DISCONNECTED (Host ' . $ip . ':' . $port . ' Unreachable / Timeout)';
         }
 
-        // Return real Disconnected status if server unreachable and cache for 20s
+        // Return real Disconnected status if server unreachable
         $offlineRes = [
             'online' => false,
             'status' => 'DISCONNECTED',
@@ -384,20 +379,14 @@ YAML;
             'channels' => $this->buildOfflineChannels($truck, $statusMsg),
             'traffic' => $this->getEmptyTraffic('DISCONNECTED'),
         ];
-        Cache::put($cacheKey, $offlineRes, now()->addSeconds(20));
         return $offlineRes;
     }
 
     /**
      * Get real live statuses and traffic telemetry across all configured trucks
-     * with short 10s caching for ultra-lightweight execution.
      */
     public function getLiveMonitoringData(bool $forceRefresh = false): array
     {
-        if (!$forceRefresh && Cache::has('holowits_truck_statuses')) {
-            return Cache::get('holowits_truck_statuses');
-        }
-
         $configs = $this->getTruckConfigs();
         $truck1Result = $this->queryTruckNvrStatus($configs['truck_1']);
         $truck2Result = $this->queryTruckNvrStatus($configs['truck_2']);
@@ -439,7 +428,6 @@ YAML;
             ]
         ];
 
-        Cache::put('holowits_truck_statuses', $result, now()->addSeconds(10));
         return $result;
     }
 

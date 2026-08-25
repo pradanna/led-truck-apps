@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
 
-# Prevent concurrent deployments
 concurrency:
   group: production-deploy
   cancel-in-progress: false
@@ -16,17 +15,11 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      # ------------------------------------------------------------------ #
-      # 1. Checkout kode dengan kedalaman 2 commit (untuk diff detection)   #
-      # ------------------------------------------------------------------ #
       - name: 📥 Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      # ------------------------------------------------------------------ #
-      # 2. Deteksi file apa yang berubah                                    #
-      # ------------------------------------------------------------------ #
       - name: 🔍 Detect changed files
         id: changes
         run: |
@@ -46,9 +39,6 @@ jobs:
 
           echo "Frontend: ${FRONTEND_COUNT:-0} | PHP: ${PHP_COUNT:-0} | Migrations: ${MIGRATION_COUNT:-0}"
 
-      # ------------------------------------------------------------------ #
-      # 3. Deploy ke VPS via SSH                                            #
-      # ------------------------------------------------------------------ #
       - name: 🔐 Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -65,7 +55,6 @@ jobs:
           script: |
             set -e
 
-            # Pastikan nilai default 0 jika variabel kosong
             FRONTEND_CHANGED=${FRONTEND_CHANGED:-0}
             PHP_CHANGED=${PHP_CHANGED:-0}
             MIGRATIONS_CHANGED=${MIGRATIONS_CHANGED:-0}
@@ -73,6 +62,13 @@ jobs:
             echo "🚀 Starting deployment..."
             echo "📊 Changes - Frontend: $FRONTEND_CHANGED | PHP: $PHP_CHANGED | Migrations: $MIGRATIONS_CHANGED"
             cd ${{ secrets.VPS_PATH }}
+
+            # Validasi: pastikan .env ada
+            if [ ! -f ".env" ]; then
+              echo "❌ ERROR: File .env tidak ditemukan di server!"
+              echo "   Jalankan: scp .env.production ubuntu@SERVER_IP:/var/www/youseemobileled.com/.env"
+              exit 1
+            fi
 
             echo "📦 Pulling latest code..."
             git pull origin main

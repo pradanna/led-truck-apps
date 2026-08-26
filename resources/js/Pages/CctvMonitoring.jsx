@@ -570,15 +570,41 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
 
       {/* REAL-TIME AI TRAFFIC ANALYTICS BAR (DATA DARI API DINAMIS MENGIKUTI FILTER) */}
       {(() => {
-        // Hitung metrik dari DATABASE LOKAL berdasarkan filter aktif
+        // Hitung metrik: Prioritaskan Live NVR data jika ada, fallback ke DB Traffic lokal
+        const t1Live = truck1?.traffic || {};
+        const t2Live = truck2?.traffic || {};
+        const t1Db   = dbTraffic?.truck_1 || {};
+        const t2Db   = dbTraffic?.truck_2 || {};
+
+        // Merge helper: ambil live jika > 0 atau ada nilai, selain itu fallback ke db
+        const getMergedTruckTraffic = (live, db) => {
+          const liveTotal = (Number(live.motorcycles) || 0) + (Number(live.cars) || 0) + (Number(live.pedestrians) || 0) + (Number(live.buses_trucks) || 0);
+          if (liveTotal > 0) {
+            return {
+              motorcycles: Number(live.motorcycles) || 0,
+              cars: Number(live.cars) || 0,
+              pedestrians: Number(live.pedestrians) || 0,
+              buses_trucks: Number(live.buses_trucks) || 0,
+              total_traffic: live.total_traffic || liveTotal,
+            };
+          }
+          return {
+            motorcycles: Number(db.motorcycles) || 0,
+            cars: Number(db.cars) || 0,
+            pedestrians: Number(db.pedestrians) || 0,
+            buses_trucks: Number(db.buses_trucks) || 0,
+            total_traffic: Number(db.total_traffic) || ((Number(db.motorcycles) || 0) + (Number(db.cars) || 0) + (Number(db.pedestrians) || 0) + (Number(db.buses_trucks) || 0)),
+          };
+        };
+
+        const t1Traffic = getMergedTruckTraffic(t1Live, t1Db);
+        const t2Traffic = getMergedTruckTraffic(t2Live, t2Db);
+
         let currentMotor = 0;
         let currentCar   = 0;
         let currentPed   = 0;
         let currentBus   = 0;
         let currentTotal = 0;
-
-        const t1Traffic = dbTraffic?.truck_1 || {};
-        const t2Traffic = dbTraffic?.truck_2 || {};
 
         if (activeFilter === 'truck_1') {
           currentMotor = t1Traffic.motorcycles || 0;
@@ -600,7 +626,7 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
           currentTotal = (t1Traffic.total_traffic || 0) + (t2Traffic.total_traffic || 0);
         }
 
-        const isCurrentLoading = isDbTrafficLoading;
+        const isCurrentLoading = isDbTrafficLoading && isTruck1Loading && isTruck2Loading;
 
         return (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">

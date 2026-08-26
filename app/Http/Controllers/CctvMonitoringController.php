@@ -25,13 +25,14 @@ class CctvMonitoringController extends Controller
     {
         $today = today()->toDateString();
 
+        // Cari data hari ini, jika belum ada ambil log traffic terakhir per armada
         $t1 = AiTrafficDailyLog::where('truck_id', 'truck_1')
             ->where('log_date', $today)
-            ->first();
+            ->first() ?? AiTrafficDailyLog::where('truck_id', 'truck_1')->orderByDesc('log_date')->first();
 
         $t2 = AiTrafficDailyLog::where('truck_id', 'truck_2')
             ->where('log_date', $today)
-            ->first();
+            ->first() ?? AiTrafficDailyLog::where('truck_id', 'truck_2')->orderByDesc('log_date')->first();
 
         $formatTraffic = fn($row) => $row ? [
             'motorcycles'    => $row->motorcycles,
@@ -40,6 +41,7 @@ class CctvMonitoringController extends Controller
             'buses_trucks'   => $row->buses_trucks,
             'total_traffic'  => $row->total_traffic,
             'estimated_reach'=> $row->estimated_reach,
+            'log_date'       => $row->log_date ? $row->log_date->format('Y-m-d') : $today,
         ] : null;
 
         return Inertia::render('CctvMonitoring', [
@@ -62,11 +64,11 @@ class CctvMonitoringController extends Controller
 
         $t1 = AiTrafficDailyLog::where('truck_id', 'truck_1')
             ->where('log_date', $today)
-            ->first();
+            ->first() ?? AiTrafficDailyLog::where('truck_id', 'truck_1')->orderByDesc('log_date')->first();
 
         $t2 = AiTrafficDailyLog::where('truck_id', 'truck_2')
             ->where('log_date', $today)
-            ->first();
+            ->first() ?? AiTrafficDailyLog::where('truck_id', 'truck_2')->orderByDesc('log_date')->first();
 
         $formatTraffic = fn($row) => $row ? [
             'motorcycles'    => $row->motorcycles,
@@ -75,6 +77,7 @@ class CctvMonitoringController extends Controller
             'buses_trucks'   => $row->buses_trucks,
             'total_traffic'  => $row->total_traffic,
             'estimated_reach'=> $row->estimated_reach,
+            'log_date'       => $row->log_date ? $row->log_date->format('Y-m-d') : $today,
         ] : null;
 
         return response()->json([

@@ -512,7 +512,12 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
       title="Live CCTV & Traffic Monitoring"
       subtitle="Monitoring stream 4 Kamera & AI Traffic terhubung langsung ke NVR HOLOWITS"
       statusBadge={
-        totalActiveCams > 0 ? (
+        isTruck1Loading || isTruck2Loading ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200 uppercase tracking-wider">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+            CONNECTING TO NVR...
+          </span>
+        ) : totalActiveCams > 0 ? (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
             {totalActiveCams}/4 CHANNELS ONLINE
@@ -559,8 +564,12 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
                 : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${truck1.online ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-            Truk 01 ({truck1.status || 'OFFLINE'})
+            <span className={`w-2 h-2 rounded-full ${
+              isTruck1Loading 
+                ? 'bg-amber-500 animate-ping' 
+                : (truck1.online ? 'bg-emerald-400' : 'bg-rose-500')
+            }`}></span>
+            Truk 01 ({isTruck1Loading ? 'CONNECTING' : (truck1.status || 'OFFLINE')})
           </button>
           <button
             onClick={() => setActiveFilter('truck_2')}
@@ -570,8 +579,12 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
                 : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
             }`}
           >
-            <span className={`w-2 h-2 rounded-full ${truck2.online ? 'bg-emerald-400' : 'bg-rose-500'}`}></span>
-            Truk 02 ({truck2.status || 'OFFLINE'})
+            <span className={`w-2 h-2 rounded-full ${
+              isTruck2Loading 
+                ? 'bg-amber-500 animate-ping' 
+                : (truck2.online ? 'bg-emerald-400' : 'bg-rose-500')
+            }`}></span>
+            Truk 02 ({isTruck2Loading ? 'CONNECTING' : (truck2.status || 'OFFLINE')})
           </button>
         </div>
 

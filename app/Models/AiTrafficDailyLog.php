@@ -49,13 +49,20 @@ class AiTrafficDailyLog extends Model
 
         $reach = (int)($metrics['estimated_reach'] ?? round(($motor * 1.2) + ($cars * 1.8) + $peds));
 
+        // Format plat nomor agar selalu <= 20 karakter (ambil dari tanda kurung jika format 'Truk LED 01 (B 9731 JXS)')
+        $cleanPlate = $truckPlate ?? ($truckId === 'truck_2' ? 'B 9729 JXS' : 'B 9731 JXS');
+        if (preg_match('/\(([^)]+)\)/', $cleanPlate, $matches)) {
+            $cleanPlate = $matches[1];
+        }
+        $cleanPlate = mb_substr($cleanPlate, 0, 20);
+
         return self::updateOrCreate(
             [
                 'truck_id' => $truckId,
                 'log_date' => $date,
             ],
             [
-                'truck_plate' => $truckPlate ?? ($truckId === 'truck_2' ? 'B 9729 JXS' : 'B 9731 JXS'),
+                'truck_plate' => $cleanPlate,
                 'motorcycles' => $motor,
                 'cars' => $cars,
                 'pedestrians' => $peds,

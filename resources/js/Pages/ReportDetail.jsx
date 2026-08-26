@@ -679,7 +679,7 @@ export default function ReportDetail({
                                     </div>
                                 </div>
 
-                                {/* Bar Chart per Tanggal */}
+                                 {/* Bar Chart per Tanggal */}
                                 <div className="space-y-3.5">
                                     {dailyTraffic.length > 0 ? (
                                         dailyTraffic.map((item, idx) => {
@@ -718,9 +718,14 @@ export default function ReportDetail({
                                                             <div className="w-full bg-slate-100 h-full" />
                                                         )}
                                                     </div>
-                                                    <span className="w-16 text-right font-mono font-bold text-slate-800 shrink-0">
-                                                        {Number(item.total || 0).toLocaleString('id-ID')}
-                                                    </span>
+                                                    <div className="w-32 text-right shrink-0 flex flex-col items-end justify-center font-mono">
+                                                        <span className="font-bold text-slate-900 text-[11px]" title="Total Traffic Kendaraan & Orang">
+                                                            {Number(item.total || 0).toLocaleString('id-ID')} <span className="text-[9px] font-normal text-slate-400">Traffic</span>
+                                                        </span>
+                                                        <span className="text-[10px] font-bold text-cyan-700" title="Estimasi Jangkauan Audiens (Reach)">
+                                                            {Number(item.estimated_reach || 0).toLocaleString('id-ID')} <span className="text-[9px] font-normal text-cyan-600">Reach</span>
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             );
                                         })

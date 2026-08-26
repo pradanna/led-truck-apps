@@ -127,16 +127,15 @@ export default function ReportDetail({
         }
     };
 
-    const handleFilterApply = (e) => {
-        if (e) e.preventDefault();
+    const applyFilter = (newTruck, newDateFrom, newDateTo, tab = activeTab) => {
         setIsRefreshing(true);
         router.get(
             '/laporan-detail',
             {
-                truck_id: selectedTruck,
-                date_from: dateFrom,
-                date_to: dateTo,
-                tab: activeTab,
+                truck_id: newTruck,
+                date_from: newDateFrom,
+                date_to: newDateTo,
+                tab: tab,
             },
             {
                 preserveState: true,
@@ -144,6 +143,24 @@ export default function ReportDetail({
                 onFinish: () => setIsRefreshing(false),
             }
         );
+    };
+
+    const handleTruckChange = (e) => {
+        const val = e.target.value;
+        setSelectedTruck(val);
+        applyFilter(val, dateFrom, dateTo);
+    };
+
+    const handleDateFromChange = (e) => {
+        const val = e.target.value;
+        setDateFrom(val);
+        applyFilter(selectedTruck, val, dateTo);
+    };
+
+    const handleDateToChange = (e) => {
+        const val = e.target.value;
+        setDateTo(val);
+        applyFilter(selectedTruck, dateFrom, val);
     };
 
     const handlePrint = () => {
@@ -158,15 +175,15 @@ export default function ReportDetail({
     });
 
     const trafficSummary = trafficData?.summary || {
-        total_motorcycles: 1240,
-        total_cars: 842,
-        total_pedestrians: 460,
-        total_buses: 118,
-        grand_total_traffic: 2660,
+        total_motorcycles: 0,
+        total_cars: 0,
+        total_pedestrians: 0,
+        total_buses: 0,
+        grand_total_traffic: 0,
     };
 
-    const hourlyTraffic = trafficData?.hourly || [];
-    const maxHourlyTotal = Math.max(...hourlyTraffic.map(h => h.total), 1);
+    const dailyTraffic = trafficData?.daily || trafficData?.hourly || [];
+    const maxDailyTotal = Math.max(...dailyTraffic.map(d => d.total || 0), 1);
 
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
@@ -189,9 +206,9 @@ export default function ReportDetail({
                 />
 
                 <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                    {/* FILTER TOOLBAR */}
+                    {/* FILTER TOOLBAR (OTOMATIS SESUAI STATE) */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-                        <form onSubmit={handleFilterApply} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 items-center">
                             <div>
                                 <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1.5">
                                     Unit Armada Truk
@@ -199,7 +216,7 @@ export default function ReportDetail({
                                 <div className="relative">
                                     <select
                                         value={selectedTruck}
-                                        onChange={(e) => setSelectedTruck(e.target.value)}
+                                        onChange={handleTruckChange}
                                         className="w-full pl-9 pr-8 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                                     >
                                         {trucks.map(t => (
@@ -218,7 +235,7 @@ export default function ReportDetail({
                                     <input
                                         type="date"
                                         value={dateFrom}
-                                        onChange={(e) => setDateFrom(e.target.value)}
+                                        onChange={handleDateFromChange}
                                         className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                                     />
                                     <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -233,24 +250,13 @@ export default function ReportDetail({
                                     <input
                                         type="date"
                                         value={dateTo}
-                                        onChange={(e) => setDateTo(e.target.value)}
+                                        onChange={handleDateToChange}
                                         className="w-full pl-9 pr-3 py-2 text-xs font-medium bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none text-slate-800"
                                     />
                                     <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
                                 </div>
                             </div>
-
-                            <div>
-                                <button
-                                    type="submit"
-                                    disabled={isRefreshing}
-                                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-bold rounded-xl bg-slate-900 hover:bg-slate-800 text-white transition shadow-xs disabled:opacity-50"
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-                                    Terapkan Filter
-                                </button>
-                            </div>
-                        </form>
+                        </div>
                     </div>
 
                     {/* NAVIGATION TABS & EXPORT ACTIONS */}
@@ -515,7 +521,7 @@ export default function ReportDetail({
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-2xl font-black text-amber-600 font-mono">
-                                            {trafficSummary.total_motorcycles ?? 0}
+                                            {Number(trafficSummary.total_motorcycles ?? 0).toLocaleString('id-ID')}
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-0.5">Unit terdeteksi NVR</div>
                                     </div>
@@ -530,7 +536,7 @@ export default function ReportDetail({
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-2xl font-black text-blue-600 font-mono">
-                                            {trafficSummary.total_cars ?? 0}
+                                            {Number(trafficSummary.total_cars ?? 0).toLocaleString('id-ID')}
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-0.5">Kendaraan roda 4</div>
                                     </div>
@@ -545,7 +551,7 @@ export default function ReportDetail({
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-2xl font-black text-emerald-600 font-mono">
-                                            {trafficSummary.total_pedestrians ?? 0}
+                                            {Number(trafficSummary.total_pedestrians ?? 0).toLocaleString('id-ID')}
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-0.5">Orang / Audiens</div>
                                     </div>
@@ -560,7 +566,7 @@ export default function ReportDetail({
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-2xl font-black text-purple-600 font-mono">
-                                            {trafficSummary.total_buses ?? 0}
+                                            {Number(trafficSummary.total_buses ?? 0).toLocaleString('id-ID')}
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-0.5">Kendaraan besar</div>
                                     </div>
@@ -575,7 +581,7 @@ export default function ReportDetail({
                                     </div>
                                     <div className="mt-2">
                                         <div className="text-2xl font-black text-cyan-700 font-mono">
-                                            {trafficSummary.grand_total_traffic ?? 0}
+                                            {Number(trafficSummary.grand_total_traffic ?? 0).toLocaleString('id-ID')}
                                         </div>
                                         <div className="text-[10px] text-slate-500 mt-0.5">Akumulasi AI Camera</div>
                                     </div>
@@ -597,53 +603,68 @@ export default function ReportDetail({
                                 </div>
                             )}
 
-                            {/* Hourly Traffic Distribution Visualizer */}
+                            {/* Daily Traffic Distribution Visualizer */}
                             <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs">
-                                <div className="flex items-center justify-between mb-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
                                     <div>
-                                        <h3 className="font-bold text-slate-900 text-sm">Distribusi Traffic per Jam (Peak Hours)</h3>
-                                        <p className="text-xs text-slate-500">Estimasi kepadatan audiens di sepanjang rute penayangan</p>
+                                        <h3 className="font-bold text-slate-900 text-sm">Grafik Perbandingan Traffic per Tanggal</h3>
+                                        <p className="text-xs text-slate-500">Akumulasi volume kendaraan dan audiens per hari berdasarkan filter</p>
                                     </div>
-                                    <div className="text-xs text-slate-500 font-mono font-medium">
-                                        Puncak: 17:00 - 18:00 WIB
+                                    <div className="text-xs text-slate-500 font-mono font-medium bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg shrink-0">
+                                        Periode: {dateFrom} s/d {dateTo}
                                     </div>
                                 </div>
 
-                                {/* Bar Chart */}
-                                <div className="space-y-3">
-                                    {hourlyTraffic.map((item, idx) => {
-                                        const pct = Math.round((item.total / maxHourlyTotal) * 100);
-                                        return (
-                                            <div key={idx} className="flex items-center gap-3 text-xs">
-                                                <span className="w-12 font-mono text-slate-500 shrink-0">{item.time}</span>
-                                                <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden flex">
-                                                    <div
-                                                        style={{ width: `${(item.motorcycles / item.total) * pct}%` }}
-                                                        className="bg-amber-400 h-full"
-                                                        title={`Motor: ${item.motorcycles}`}
-                                                    />
-                                                    <div
-                                                        style={{ width: `${(item.cars / item.total) * pct}%` }}
-                                                        className="bg-blue-500 h-full"
-                                                        title={`Mobil: ${item.cars}`}
-                                                    />
-                                                    <div
-                                                        style={{ width: `${(item.pedestrians / item.total) * pct}%` }}
-                                                        className="bg-emerald-500 h-full"
-                                                        title={`Pejalan Kaki: ${item.pedestrians}`}
-                                                    />
-                                                    <div
-                                                        style={{ width: `${(item.buses / item.total) * pct}%` }}
-                                                        className="bg-purple-500 h-full"
-                                                        title={`Bus: ${item.buses}`}
-                                                    />
+                                {/* Bar Chart per Tanggal */}
+                                <div className="space-y-3.5">
+                                    {dailyTraffic.length > 0 ? (
+                                        dailyTraffic.map((item, idx) => {
+                                            const pct = maxDailyTotal > 0 ? Math.round(((item.total || 0) / maxDailyTotal) * 100) : 0;
+                                            return (
+                                                <div key={idx} className="flex items-center gap-3 text-xs">
+                                                    <div className="w-28 shrink-0">
+                                                        <div className="font-bold text-slate-800 font-mono text-[11px]">{item.formatted_date || item.date}</div>
+                                                        <div className="text-[10px] text-slate-400">{item.day_name || item.time || ''}</div>
+                                                    </div>
+                                                    <div className="flex-1 bg-slate-100 rounded-full h-4 overflow-hidden flex">
+                                                        {item.total > 0 ? (
+                                                            <>
+                                                                <div
+                                                                    style={{ width: `${(item.motorcycles / item.total) * pct}%` }}
+                                                                    className="bg-amber-400 h-full transition-all duration-300"
+                                                                    title={`Motor: ${Number(item.motorcycles).toLocaleString('id-ID')}`}
+                                                                />
+                                                                <div
+                                                                    style={{ width: `${(item.cars / item.total) * pct}%` }}
+                                                                    className="bg-blue-500 h-full transition-all duration-300"
+                                                                    title={`Mobil: ${Number(item.cars).toLocaleString('id-ID')}`}
+                                                                />
+                                                                <div
+                                                                    style={{ width: `${(item.pedestrians / item.total) * pct}%` }}
+                                                                    className="bg-emerald-500 h-full transition-all duration-300"
+                                                                    title={`Pejalan Kaki: ${Number(item.pedestrians).toLocaleString('id-ID')}`}
+                                                                />
+                                                                <div
+                                                                    style={{ width: `${(item.buses / item.total) * pct}%` }}
+                                                                    className="bg-purple-500 h-full transition-all duration-300"
+                                                                    title={`Bus & Truk: ${Number(item.buses).toLocaleString('id-ID')}`}
+                                                                />
+                                                            </>
+                                                        ) : (
+                                                            <div className="w-full bg-slate-100 h-full" />
+                                                        )}
+                                                    </div>
+                                                    <span className="w-16 text-right font-mono font-bold text-slate-800 shrink-0">
+                                                        {Number(item.total || 0).toLocaleString('id-ID')}
+                                                    </span>
                                                 </div>
-                                                <span className="w-12 text-right font-mono font-bold text-slate-800 shrink-0">
-                                                    {item.total}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
+                                            );
+                                        })
+                                    ) : (
+                                        <div className="text-center py-8 text-slate-400 text-xs">
+                                            Belum ada data rekaman traffic untuk rentang tanggal ini.
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-4 mt-6 pt-4 border-t border-slate-100 text-xs text-slate-600">
@@ -659,6 +680,71 @@ export default function ReportDetail({
                                     <span className="flex items-center gap-1.5 font-medium">
                                         <span className="w-3 h-3 rounded-full bg-purple-500 inline-block" /> Bus & Truk
                                     </span>
+                                </div>
+                            </div>
+
+                            {/* Daily Breakdown Table */}
+                            <div className="bg-white border border-slate-200 rounded-2xl shadow-xs overflow-hidden">
+                                <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Rincian Data Harian</h4>
+                                        <p className="text-[11px] text-slate-500">Tabel breakdown volume lalu lintas per tanggal</p>
+                                    </div>
+                                    <div className="text-xs text-slate-500 font-mono">
+                                        Total: {dailyTraffic.length} Hari
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-500 uppercase font-bold text-[10px] tracking-wider">
+                                            <tr>
+                                                <th className="py-3 px-4">Tanggal</th>
+                                                <th className="py-3 px-4 text-right">Sepeda Motor</th>
+                                                <th className="py-3 px-4 text-right">Mobil</th>
+                                                <th className="py-3 px-4 text-right">Pejalan Kaki</th>
+                                                <th className="py-3 px-4 text-right">Bus / Truk</th>
+                                                <th className="py-3 px-4 text-right">Total Traffic</th>
+                                                <th className="py-3 px-4 text-right">Est. Reach</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                                            {dailyTraffic.length > 0 ? (
+                                                dailyTraffic.map((d, idx) => (
+                                                    <tr key={idx} className="hover:bg-slate-50 transition">
+                                                        <td className="py-3 px-4">
+                                                            <div className="font-bold text-slate-900 font-mono">{d.formatted_date || d.date}</div>
+                                                            <div className="text-[10px] text-slate-400">{d.day_name || '-'}</div>
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono text-amber-600 font-semibold">
+                                                            {Number(d.motorcycles || 0).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono text-blue-600 font-semibold">
+                                                            {Number(d.cars || 0).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono text-emerald-600 font-semibold">
+                                                            {Number(d.pedestrians || 0).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono text-purple-600 font-semibold">
+                                                            {Number(d.buses || 0).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">
+                                                            {Number(d.total || 0).toLocaleString('id-ID')}
+                                                        </td>
+                                                        <td className="py-3 px-4 text-right font-mono font-bold text-cyan-700">
+                                                            {Number(d.estimated_reach || (d.total ? Math.round(d.total * 1.3) : 0)).toLocaleString('id-ID')}
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={7} className="text-center py-6 text-slate-400">
+                                                        Belum ada data traffic pada periode ini.
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </div>
@@ -761,7 +847,7 @@ export default function ReportDetail({
                                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                                     <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Total Jarak Tempuh</span>
                                     <div className="text-2xl font-black text-slate-900 font-mono mt-1">
-                                        {summaryKPI.total_distance_km || '142.6'} <span className="text-xs font-normal text-slate-500">KM</span>
+                                        {summaryKPI.total_distance_km ?? 0} <span className="text-xs font-normal text-slate-500">KM</span>
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1">Total rute kampanye</div>
                                 </div>
@@ -769,7 +855,7 @@ export default function ReportDetail({
                                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                                     <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Kecepatan Rata-rata</span>
                                     <div className="text-2xl font-black text-slate-900 font-mono mt-1">
-                                        {gpsData.stats?.avg_speed || '24.5 km/jam'}
+                                        {gpsData.stats?.avg_speed || '0.0 km/jam'}
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1">Kecepatan jelajah LED</div>
                                 </div>
@@ -777,7 +863,7 @@ export default function ReportDetail({
                                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                                     <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Jam Nyala Mesin (Engine)</span>
                                     <div className="text-2xl font-black text-slate-900 font-mono mt-1">
-                                        {gpsData.stats?.engine_hours || '118 Jam'}
+                                        {gpsData.stats?.engine_hours || '0 Jam'}
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1">Durasi generator & truk</div>
                                 </div>
@@ -785,7 +871,7 @@ export default function ReportDetail({
                                 <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
                                     <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">Titik Singgah / Idle</span>
                                     <div className="text-2xl font-black text-slate-900 font-mono mt-1">
-                                        {gpsData.stats?.idle_time || '14 Jam'}
+                                        {gpsData.stats?.idle_time || '0 Jam'}
                                     </div>
                                     <div className="text-[10px] text-slate-500 mt-1">Stationary display spot</div>
                                 </div>

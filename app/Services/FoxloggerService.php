@@ -524,56 +524,64 @@ class FoxloggerService
             ->first();
 
         if ($dbAgg && $dbAgg->total_points > 1) {
-            $distFromMill = ($dbAgg->max_mill && $dbAgg->min_mill && $dbAgg->max_mill > $dbAgg->min_mill)
-                ? round($dbAgg->max_mill - $dbAgg->min_mill, 2)
+            $maxMill = (float)($dbAgg->max_mill ?? 0);
+            $minMill = (float)($dbAgg->min_mill ?? 0);
+            
+            // Jarak Tempuh = Odometer Akhir Hari - Odometer Awal Hari
+            $realDistance = ($maxMill > $minMill && $minMill > 0)
+                ? round($maxMill - $minMill, 2)
                 : 0.0;
 
-            $avgSpeed = $dbAgg->moving_avg_speed ? round((float)$dbAgg->moving_avg_speed, 1) : 45.0;
-            $realDistance = $distFromMill > 0 ? $distFromMill : round(($avgSpeed ?: 15) * 0.8, 2);
-
-            // 1. Calculate physical movement trip time (Distance / Avg Speed)
-            $movingSeconds = (int)round(($realDistance / max($avgSpeed, 20.0)) * 3600);
-
-            // 2. Calculate stationary idle/park display duration from points
             $allPoints = \App\Models\GpsTelemetryLog::where('imei', $imei)
                 ->whereBetween('logged_at', [$time1, $time2])
                 ->orderBy('logged_at', 'asc')
-                ->select('logged_at', 'speed', 'status', 'engine_status')
+                ->select('logged_at', 'latitude', 'longitude', 'speed', 'status', 'engine_status', 'mileage_km')
                 ->get();
 
-            $logIdleSeconds = 0;
+            $activeEngineSeconds = 0;
+            $idleSeconds = 0;
+            $movingSpeeds = [];
+            $maxSpeed = 0.0;
+
             for ($i = 0; $i < $allPoints->count() - 1; $i++) {
                 $p1 = $allPoints[$i];
                 $p2 = $allPoints[$i + 1];
-                
+
                 $t1 = strtotime($p1->logged_at);
                 $t2 = strtotime($p2->logged_at);
                 $diff = abs($t2 - $t1);
 
-                if ($diff > 0 && $diff <= 14400) {
-                    $speed = (float)$p1->speed;
-                    $status = strtoupper(trim((string)$p1->status));
-                    $engine = strtoupper(trim((string)$p1->engine_status));
+                $speed = (float)$p1->speed;
+                $status = strtoupper(trim((string)$p1->status));
+                $engine = strtoupper(trim((string)$p1->engine_status));
 
-                    if ($speed == 0 && ($status === 'PARK' || $status === 'STOP' || $status === 'IDLE' || $engine === 'ON')) {
-                        $logIdleSeconds += $diff;
+                if ($speed > 0) {
+                    $movingSpeeds[] = $speed;
+                    if ($speed > $maxSpeed) {
+                        $maxSpeed = $speed;
+                    }
+                }
+
+                // Calculate real duration based on sampling interval
+                if ($diff > 0 && $diff <= 1800) {
+                    if ($speed > 0 || $status === 'MOVE') {
+                        $activeEngineSeconds += $diff;
+                    } elseif ($engine === 'ON' || $status === 'IDLE') {
+                        $idleSeconds += $diff;
+                        $activeEngineSeconds += $diff;
                     }
                 }
             }
 
-            // Stationary Idle Display duration (e.g. 1 - 2 hours at display spot)
-            $idleSeconds = $logIdleSeconds > 0 ? min($logIdleSeconds, 10800) : (int)round($movingSeconds * 0.25);
-
-            // Total Engine Operational Hours = Movement Jelajah Tempuh + Waktu Singgah Display
-            $totalEngineSeconds = $movingSeconds + $idleSeconds;
+            $avgSpeed = count($movingSpeeds) > 0 ? round(array_sum($movingSpeeds) / count($movingSpeeds), 1) : 0.0;
 
             return [
                 'distance_km' => $realDistance,
                 'avg_speed' => $avgSpeed,
-                'max_speed' => round((float)$dbAgg->max_speed, 1),
+                'max_speed' => round($maxSpeed, 1),
                 'points_count' => (int)$dbAgg->total_points,
-                'engine_seconds' => $totalEngineSeconds,
-                'moving_seconds' => $movingSeconds,
+                'engine_seconds' => $activeEngineSeconds,
+                'moving_seconds' => max(0, $activeEngineSeconds - $idleSeconds),
                 'idle_seconds' => $idleSeconds,
             ];
         }

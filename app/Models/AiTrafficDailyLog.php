@@ -31,16 +31,23 @@ class AiTrafficDailyLog extends Model
     ];
 
     /**
-     * Upsert traffic data for a truck on a given date
+     * Upsert traffic data for a truck on a given date only if active traffic detected (> 0)
      */
-    public static function recordTraffic(string $truckId, string $date, array $metrics, ?string $truckPlate = null): self
+    public static function recordTraffic(string $truckId, string $date, array $metrics, ?string $truckPlate = null): ?self
     {
         $motor = (int)($metrics['motorcycles'] ?? 0);
         $cars = (int)($metrics['cars'] ?? 0);
         $peds = (int)($metrics['pedestrians'] ?? 0);
         $buses = (int)($metrics['buses_trucks'] ?? 0);
         $total = $motor + $cars + $peds + $buses;
-        $reach = (int)($metrics['estimated_reach'] ?? round($total * 1.6));
+        $detectionStatus = strtoupper(trim($metrics['detection_status'] ?? ''));
+
+        // Jangan simpan jika perangkat offline / standby atau total deteksi traffic 0
+        if ($total <= 0 || in_array($detectionStatus, ['DISCONNECTED', 'UNCONFIGURED', 'OFFLINE', 'STANDBY'])) {
+            return null;
+        }
+
+        $reach = (int)($metrics['estimated_reach'] ?? round(($motor * 1.2) + ($cars * 1.8) + $peds));
 
         return self::updateOrCreate(
             [

@@ -39,7 +39,11 @@ class SyncDailyAiTraffic extends Command
             $name = $tData['name'] ?? $truckId;
 
             $record = AiTrafficDailyLog::recordTraffic($truckId, $targetDate, $traffic, $plate);
-            $this->info(" -> [{$name} ({$plate})]: Archived {$record->total_traffic} vehicles/pedestrians (Reach: {$record->estimated_reach}).");
+            if ($record) {
+                $this->info(" -> [{$name} ({$plate})]: Archived {$record->total_traffic} vehicles/pedestrians (Reach: {$record->estimated_reach}).");
+            } else {
+                $this->comment(" -> [{$name} ({$plate})]: Kamera standby / offline (Data tidak disimpan ke database).");
+            }
         }
 
         $this->info("AI Traffic archiving completed successfully!");

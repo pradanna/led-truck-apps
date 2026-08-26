@@ -38,26 +38,17 @@ class SyncDailyGpsLogs extends Command
             ['imei' => '0866833070213829', 'plate' => 'B 9729 JXS', 'name' => 'Truk LED 02'],
         ];
 
-        // Also fetch live devices list from API to detect any new added units
-        $liveDevices = $foxlogger->getDeviceList(true);
-        foreach ($liveDevices as $dev) {
-            if (!empty($dev['imei'])) {
-                $exists = false;
-                foreach ($trucks as $t) {
-                    if ($t['imei'] === $dev['imei']) {
-                        $exists = true;
-                        break;
-                    }
-                }
-                if (!$exists) {
-                    $trucks[] = [
-                        'imei' => $dev['imei'],
-                        'plate' => $dev['gps_name'] ?? 'Truk LED',
-                        'name' => $dev['gps_name'] ?? 'Truk LED',
-                    ];
-                }
+        // 1. Sync & Archive current live report-position snapshot (contains real-time mileage & position)
+        $this->info("Archiving current live positions & odometers (report-position)...");
+        $livePositions = $foxlogger->getReportPosition(true);
+        $posCount = 0;
+        foreach ($livePositions as $pos) {
+            if (!empty($pos['imei']) && !empty($pos['last_upd'])) {
+                $saved = GpsTelemetryLog::bulkSyncFromFoxlogger($pos['imei'], [$pos], $pos['unit'] ?? null);
+                $posCount += $saved;
             }
         }
+        $this->info("Live position sync done ({$posCount} positions updated).");
 
         for ($d = 0; $d < $daysCount; $d++) {
             $curDate = date('Y-m-d', strtotime("{$targetDate} -{$d} days"));

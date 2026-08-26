@@ -248,27 +248,27 @@
             </tr>
         </table>
 
-        <div class="section-heading">Distribusi Kepadatan Audiens per Jam (Peak Hours)</div>
+        <div class="section-heading">Rincian & Perbandingan Traffic Harian per Tanggal</div>
         <table class="data-table">
             <thead>
                 <tr>
-                    <th style="width: 15%;">Jam Operasional</th>
-                    <th style="width: 20%;" class="text-right">Sepeda Motor</th>
-                    <th style="width: 20%;" class="text-right">Mobil</th>
-                    <th style="width: 20%;" class="text-right">Pejalan Kaki</th>
-                    <th style="width: 10%;" class="text-right">Bus / Truk</th>
-                    <th style="width: 15%;" class="text-right">Total Akumulasi</th>
+                    <th style="width: 20%;">Tanggal</th>
+                    <th style="width: 15%;" class="text-right">Sepeda Motor</th>
+                    <th style="width: 15%;" class="text-right">Mobil</th>
+                    <th style="width: 15%;" class="text-right">Pejalan Kaki</th>
+                    <th style="width: 15%;" class="text-right">Bus / Truk</th>
+                    <th style="width: 20%;" class="text-right">Total Akumulasi</th>
                 </tr>
             </thead>
             <tbody>
-                @forelse($trafficData['hourly'] ?? [] as $hr)
+                @forelse($trafficData['daily'] ?? $trafficData['hourly'] ?? [] as $d)
                     <tr>
-                        <td class="font-bold">{{ $hr['time'] }} WIB</td>
-                        <td class="text-right">{{ number_format($hr['motorcycles'] ?? 0, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($hr['cars'] ?? 0, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($hr['pedestrians'] ?? 0, 0, ',', '.') }}</td>
-                        <td class="text-right">{{ number_format($hr['buses'] ?? 0, 0, ',', '.') }}</td>
-                        <td class="text-right font-bold">{{ number_format($hr['total'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="font-bold">{{ $d['formatted_date'] ?? $d['date'] }} ({{ $d['day_name'] ?? '-' }})</td>
+                        <td class="text-right">{{ number_format($d['motorcycles'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($d['cars'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($d['pedestrians'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="text-right">{{ number_format($d['buses'] ?? 0, 0, ',', '.') }}</td>
+                        <td class="text-right font-bold">{{ number_format($d['total'] ?? 0, 0, ',', '.') }}</td>
                     </tr>
                 @empty
                     <tr>

@@ -95,17 +95,38 @@ class ReportController extends Controller
             $trafficSummary = $grandSummary;
         }
 
-        // Hourly traffic distribution (estimasi berdasarkan bobot jam operasional)
-        $hourlyTraffic = [];
-        $hours   = ['06:00', '07:00', '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
-        $weights = [0.02, 0.05, 0.09, 0.08, 0.06, 0.05, 0.07, 0.06, 0.05, 0.07, 0.09, 0.12, 0.09, 0.05, 0.03, 0.02];
-        foreach ($hours as $idx => $hour) {
-            $w = $weights[$idx] ?? 0.05;
-            $m = (int)round(($trafficSummary['total_motorcycles'] ?? 0) * $w);
-            $c = (int)round(($trafficSummary['total_cars']         ?? 0) * $w);
-            $p = (int)round(($trafficSummary['total_pedestrians']  ?? 0) * $w);
-            $b = (int)round(($trafficSummary['total_buses']        ?? 0) * $w);
-            $hourlyTraffic[] = ['time' => $hour, 'motorcycles' => $m, 'cars' => $c, 'pedestrians' => $p, 'buses' => $b, 'total' => $m + $c + $p + $b];
+        // Daily traffic breakdown (Grafik & Tabel Perbandingan per Tanggal)
+        $dailyTraffic = [];
+        $startDate = \Carbon\Carbon::parse($dateFrom);
+        $endDate = \Carbon\Carbon::parse($dateTo);
+
+        for ($d = $startDate->copy(); $d->lte($endDate); $d->addDay()) {
+            $dateStr = $d->format('Y-m-d');
+            $dayLogs = $allLogs->filter(function($item) use ($dateStr, $truckFilter) {
+                $itemDate = $item->log_date ? $item->log_date->format('Y-m-d') : '';
+                if ($itemDate !== $dateStr) return false;
+                if ($truckFilter !== 'all' && $item->truck_id !== $truckFilter) return false;
+                return true;
+            });
+
+            $dMotor = (int)$dayLogs->sum('motorcycles');
+            $dCars  = (int)$dayLogs->sum('cars');
+            $dPeds  = (int)$dayLogs->sum('pedestrians');
+            $dBuses = (int)$dayLogs->sum('buses_trucks');
+            $dReach = (int)$dayLogs->sum('estimated_reach');
+            $dTotal = $dMotor + $dCars + $dPeds + $dBuses;
+
+            $dailyTraffic[] = [
+                'date' => $dateStr,
+                'formatted_date' => $d->translatedFormat('d M Y'),
+                'day_name' => $d->translatedFormat('l'),
+                'motorcycles' => $dMotor,
+                'cars' => $dCars,
+                'pedestrians' => $dPeds,
+                'buses' => $dBuses,
+                'estimated_reach' => $dReach,
+                'total' => $dTotal,
+            ];
         }
 
         // 2. Fetch Playlog Data: Check Database Archive First, Fallback to Cache/Live VNNOX Service
@@ -416,7 +437,8 @@ class ReportController extends Controller
                 'summary' => $trafficSummary,
                 'truck_1' => $truck1Traffic,
                 'truck_2' => $truck2Traffic,
-                'hourly' => $hourlyTraffic,
+                'daily' => $dailyTraffic,
+                'hourly' => $dailyTraffic, // backward compatibility
             ],
             'playlogData' => [
                 'records' => $filteredRecords,
@@ -545,9 +567,9 @@ class ReportController extends Controller
                 fputcsv($file, ['Bus & Truk', $data['trafficData']['summary']['total_buses']]);
                 fputcsv($file, ['GRAND TOTAL TRAFFIC', $data['trafficData']['summary']['grand_total_traffic']]);
                 fputcsv($file, []);
-                fputcsv($file, ['JAM', 'MOTOR', 'MOBIL', 'PEJALAN KAKI', 'BUS/TRUK', 'TOTAL']);
-                foreach ($data['trafficData']['hourly'] as $h) {
-                    fputcsv($file, [$h['time'], $h['motorcycles'], $h['cars'], $h['pedestrians'], $h['buses'], $h['total']]);
+                fputcsv($file, ['TANGGAL', 'HARI', 'MOTOR', 'MOBIL', 'PEJALAN KAKI', 'BUS/TRUK', 'TOTAL', 'EST. REACH']);
+                foreach ($data['trafficData']['daily'] as $d) {
+                    fputcsv($file, [$d['date'], $d['day_name'] ?? '-', $d['motorcycles'], $d['cars'], $d['pedestrians'], $d['buses'], $d['total'], $d['estimated_reach']]);
                 }
             } elseif ($tab === 'playlog') {
                 fputcsv($file, ['NO', 'WAKTU PEMUTARAN', 'MATERI IKLAN', 'KLIEN', 'DURASI (DETIK)', 'STATUS']);

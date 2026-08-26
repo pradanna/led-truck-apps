@@ -75,7 +75,7 @@ class GpsTelemetryLog extends Model
             $lng = (float)($pt['long'] ?? $pt['longitude'] ?? $pt['lo_long'] ?? $pt['last_longitude'] ?? 0);
             $speed = (float)($pt['Speed'] ?? $pt['speed'] ?? $pt['last_speed'] ?? 0);
             $rawStatus = strtoupper(trim($pt['status'] ?? $pt['movement_status'] ?? 'OFF'));
-            $rawEngine = strtoupper(trim($pt['engi'] ?? ($pt['last_engine'] == 1 ? 'ON' : 'OFF')));
+            $rawEngine = strtoupper(trim($pt['engi'] ?? ((isset($pt['last_engine']) && $pt['last_engine'] == 1) ? 'ON' : 'OFF')));
             $mileage = (float)($pt['Mill'] ?? $pt['mileage'] ?? 0);
             $address = $pt['addr'] ?? $pt['address'] ?? $pt['last_address'] ?? null;
 

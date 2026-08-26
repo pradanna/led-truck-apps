@@ -81,12 +81,11 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
     return () => clearInterval(timer);
   }, []);
 
-  // Parallel & Isolated Micro-fetch untuk Truk 01 dan Truk 02 (status kamera NVR saja)
+  // Parallel & Isolated Micro-fetch untuk Truk 01 dan Truk 02 (Connect API Live -> Update DB -> Tampilkan)
   useEffect(() => {
     const controller = new AbortController();
 
-    // 1. Fetch Truk 01 Independently
-    fetch('/api/cctv/truck/truck_1', { signal: controller.signal })
+    const fetchTruck1 = fetch('/api/cctv/truck/truck_1', { signal: controller.signal })
       .then(res => res.json())
       .then(resJson => {
         if (resJson.success && resJson.data) {
@@ -127,8 +126,7 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
       })
       .finally(() => setIsTruck1Loading(false));
 
-    // 2. Fetch Truk 02 Independently
-    fetch('/api/cctv/truck/truck_2', { signal: controller.signal })
+    const fetchTruck2 = fetch('/api/cctv/truck/truck_2', { signal: controller.signal })
       .then(res => res.json())
       .then(resJson => {
         if (resJson.success && resJson.data) {
@@ -169,25 +167,16 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
       })
       .finally(() => setIsTruck2Loading(false));
 
+    // Setelah kedua truk selesai connect API & update DB, matikan loading dbTraffic
+    Promise.allSettled([fetchTruck1, fetchTruck2]).then(() => {
+      setIsDbTrafficLoading(false);
+    });
+
     return () => controller.abort(); // Auto abort saat pindah menu
   }, []);
 
   // Poll traffic data dari DATABASE LOKAL setiap 60 detik (bukan dari NVR API)
   useEffect(() => {
-    // Jika belum ada data awal (trafficSummary null dari server), langsung fetch
-    if (!trafficSummary) {
-      fetch('/api/cctv/traffic-db')
-        .then(res => res.json())
-        .then(res => {
-          if (res.success) {
-            setDbTraffic({ truck_1: res.truck_1, truck_2: res.truck_2 });
-          }
-        })
-        .catch(() => {})
-        .finally(() => setIsDbTrafficLoading(false));
-    }
-
-    // Poll setiap 60 detik
     const dbPollInterval = setInterval(() => {
       fetch('/api/cctv/traffic-db')
         .then(res => res.json())

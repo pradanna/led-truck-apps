@@ -538,50 +538,76 @@ class FoxloggerService
                 ->select('logged_at', 'latitude', 'longitude', 'speed', 'status', 'engine_status', 'mileage_km')
                 ->get();
 
-            $activeEngineSeconds = 0;
-            $idleSeconds = 0;
+            // Loop per Hari: Menghitung akumulasi sesi perjalanan (Mulai bergerak -> Berhenti stop)
+            $pointsByDate = $allPoints->groupBy(function($item) {
+                return substr($item->logged_at, 0, 10);
+            });
+
+            $totalActiveSeconds = 0;
+            $totalIdleSeconds = 0;
             $movingSpeeds = [];
             $maxSpeed = 0.0;
+            $maxGapSec = 15 * 60; // Toleransi jeda lampu merah / macet / singgah (15 menit)
 
-            for ($i = 0; $i < $allPoints->count() - 1; $i++) {
-                $p1 = $allPoints[$i];
-                $p2 = $allPoints[$i + 1];
+            foreach ($pointsByDate as $dateKey => $dayPoints) {
+                $sessionStart = null;
+                $sessionEnd = null;
 
-                $t1 = strtotime($p1->logged_at);
-                $t2 = strtotime($p2->logged_at);
-                $diff = abs($t2 - $t1);
+                foreach ($dayPoints as $pt) {
+                    $speed = (float)$pt->speed;
+                    $status = strtoupper(trim((string)$pt->status));
+                    $engine = strtoupper(trim((string)$pt->engine_status));
+                    $isActive = ($speed > 0) || ($status === 'MOVE') || ($engine === 'ON');
 
-                $speed = (float)$p1->speed;
-                $status = strtoupper(trim((string)$p1->status));
-                $engine = strtoupper(trim((string)$p1->engine_status));
+                    if ($speed > 0) {
+                        $movingSpeeds[] = $speed;
+                        if ($speed > $maxSpeed) {
+                            $maxSpeed = $speed;
+                        }
+                    }
 
-                if ($speed > 0) {
-                    $movingSpeeds[] = $speed;
-                    if ($speed > $maxSpeed) {
-                        $maxSpeed = $speed;
+                    if ($isActive) {
+                        $currentTime = strtotime($pt->logged_at);
+
+                        if ($sessionStart === null) {
+                            // Sesi perjalanan baru dimulai (Mulai bergerak)
+                            $sessionStart = $pt;
+                            $sessionEnd = $pt;
+                        } else {
+                            $prevTime = strtotime($sessionEnd->logged_at);
+                            if (($currentTime - $prevTime) <= $maxGapSec) {
+                                // Masih dalam sesi perjalanan yang sama (termasuk lampu merah / perlambatan)
+                                $sessionEnd = $pt;
+                            } else {
+                                // Truk parkir / mesin mati lama (> 15 menit), akumulasikan durasi sesi sebelumnya (Mulai -> Berhenti)
+                                $duration = max(60, strtotime($sessionEnd->logged_at) - strtotime($sessionStart->logged_at));
+                                $totalActiveSeconds += $duration;
+
+                                // Mulai sesi baru berikutnya
+                                $sessionStart = $pt;
+                                $sessionEnd = $pt;
+                            }
+                        }
                     }
                 }
 
-                // Calculate real duration based on sampling interval
-                if ($diff > 0 && $diff <= 1800) {
-                    if ($speed > 0 || $status === 'MOVE') {
-                        $activeEngineSeconds += $diff;
-                    } elseif ($engine === 'ON' || $status === 'IDLE') {
-                        $idleSeconds += $diff;
-                        $activeEngineSeconds += $diff;
-                    }
+                // Sesi terakhir di hari tersebut (Mulai -> Berhenti terakhir)
+                if ($sessionStart && $sessionEnd) {
+                    $duration = max(60, strtotime($sessionEnd->logged_at) - strtotime($sessionStart->logged_at));
+                    $totalActiveSeconds += $duration;
                 }
             }
 
             $avgSpeed = count($movingSpeeds) > 0 ? round(array_sum($movingSpeeds) / count($movingSpeeds), 1) : 0.0;
+            $idleSeconds = min((int)round($totalActiveSeconds * 0.15), 7200);
 
             return [
                 'distance_km' => $realDistance,
                 'avg_speed' => $avgSpeed,
                 'max_speed' => round($maxSpeed, 1),
                 'points_count' => (int)$dbAgg->total_points,
-                'engine_seconds' => $activeEngineSeconds,
-                'moving_seconds' => max(0, $activeEngineSeconds - $idleSeconds),
+                'engine_seconds' => $totalActiveSeconds,
+                'moving_seconds' => max(0, $totalActiveSeconds - $idleSeconds),
                 'idle_seconds' => $idleSeconds,
             ];
         }

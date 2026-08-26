@@ -108,7 +108,7 @@ class ReportController extends Controller
                 if ($truckFilter !== 'all' && $item->truck_id !== $truckFilter) return false;
                 return true;
             });
-
+ 
             $dMotor = (int)$dayLogs->sum('motorcycles');
             $dCars  = (int)$dayLogs->sum('cars');
             $dPeds  = (int)$dayLogs->sum('pedestrians');

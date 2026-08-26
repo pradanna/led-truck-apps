@@ -90,10 +90,9 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
       .then(res => res.json())
       .then(resJson => {
         if (resJson.success && resJson.data) {
+          const t1 = resJson.data?.traffic || {};
           setData(prev => {
             const next = { ...prev, truck_1: resJson.data };
-            // Update summary (untuk estimasi reach dll, bukan traffic count)
-            const t1 = resJson.data?.traffic || {};
             const t2 = prev?.truck_2?.traffic || {};
             next.summary = {
               total_motorcycles: (t1.motorcycles || 0) + (t2.motorcycles || 0),
@@ -105,6 +104,22 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
             };
             return next;
           });
+
+          // Update dbTraffic state jika NVR mendeteksi traffic
+          if (t1.motorcycles !== undefined || t1.total_traffic !== undefined) {
+            setDbTraffic(prev => ({
+              ...prev,
+              truck_1: {
+                ...prev.truck_1,
+                motorcycles: t1.motorcycles || 0,
+                cars: t1.cars || 0,
+                pedestrians: t1.pedestrians || 0,
+                buses_trucks: t1.buses_trucks || 0,
+                total_traffic: t1.total_traffic || ((t1.motorcycles || 0) + (t1.cars || 0) + (t1.pedestrians || 0) + (t1.buses_trucks || 0)),
+                estimated_reach: t1.estimated_reach || 0,
+              }
+            }));
+          }
         }
       })
       .catch(err => {
@@ -117,10 +132,10 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
       .then(res => res.json())
       .then(resJson => {
         if (resJson.success && resJson.data) {
+          const t2 = resJson.data?.traffic || {};
           setData(prev => {
             const next = { ...prev, truck_2: resJson.data };
             const t1 = prev?.truck_1?.traffic || {};
-            const t2 = resJson.data?.traffic || {};
             next.summary = {
               total_motorcycles: (t1.motorcycles || 0) + (t2.motorcycles || 0),
               total_cars: (t1.cars || 0) + (t2.cars || 0),
@@ -131,6 +146,22 @@ export default function CctvMonitoring({ monitoringData = null, trafficSummary =
             };
             return next;
           });
+
+          // Update dbTraffic state jika NVR mendeteksi traffic
+          if (t2.motorcycles !== undefined || t2.total_traffic !== undefined) {
+            setDbTraffic(prev => ({
+              ...prev,
+              truck_2: {
+                ...prev.truck_2,
+                motorcycles: t2.motorcycles || 0,
+                cars: t2.cars || 0,
+                pedestrians: t2.pedestrians || 0,
+                buses_trucks: t2.buses_trucks || 0,
+                total_traffic: t2.total_traffic || ((t2.motorcycles || 0) + (t2.cars || 0) + (t2.pedestrians || 0) + (t2.buses_trucks || 0)),
+                estimated_reach: t2.estimated_reach || 0,
+              }
+            }));
+          }
         }
       })
       .catch(err => {

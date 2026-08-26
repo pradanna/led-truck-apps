@@ -73,11 +73,10 @@ export default function CampaignDocumentation({ documentations = [], folders = [
     event_date: new Date().toISOString().split('T')[0],
     user_id: '',
     folder_id: '',
-    media_type: 'image',
-    file: null,
     notes: '',
   });
-  const [filePreview, setFilePreview] = useState(null);
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [filePreviews, setFilePreviews] = useState([]);
 
   // Lightbox Media Player State
   const [activeMedia, setActiveMedia] = useState(null); // { url, type, title, campaign, location, date, client }
@@ -161,51 +160,60 @@ export default function CampaignDocumentation({ documentations = [], folders = [
   const handleOpenUploadModal = (folder = null) => {
     let folderDate = new Date().toISOString().split('T')[0];
     let folderId = '';
+    let campaignName = '';
+    let clientId = '';
+
     if (folder) {
       if (typeof folder === 'object') {
         folderId = folder.id || '';
         folderDate = folder.raw_event_date || folderDate;
+        campaignName = folder.campaign_name || '';
+        clientId = folder.client_id || '';
       } else if (typeof folder === 'string') {
         folderDate = folder;
         const found = dbFoldersList.find(f => f.raw_event_date === folder || String(f.id) === String(folder));
-        if (found) folderId = found.id;
+        if (found) {
+          folderId = found.id;
+          campaignName = found.campaign_name || '';
+          clientId = found.client_id || '';
+        }
       }
     }
 
     setFormData({
       title: '',
-      campaign_name: '',
+      campaign_name: campaignName,
       location: 'Jakarta Pusat (Bundaran HI)',
       event_date: folderDate,
-      user_id: '',
+      user_id: clientId,
       folder_id: folderId,
-      media_type: 'image',
-      file: null,
       notes: '',
     });
-    setFilePreview(null);
+    setSelectedFiles([]);
+    setFilePreviews([]);
     setUploadProgress(0);
     setModalError('');
     setIsUploadModalOpen(true);
   };
 
   const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setFilePreview(URL.createObjectURL(file));
-        setFormData((prev) => ({ ...prev, file, media_type: 'image' }));
-      } else if (file.type.startsWith('video/')) {
-        setFilePreview(URL.createObjectURL(file));
-        setFormData((prev) => ({ ...prev, file, media_type: 'video' }));
-      }
+    const files = Array.from(e.target.files || []);
+    if (files.length > 0) {
+      setSelectedFiles(files);
+      const previews = files.map((file) => ({
+        name: file.name,
+        size: (file.size / (1024 * 1024)).toFixed(1) + ' MB',
+        type: file.type.startsWith('video/') ? 'video' : 'image',
+        url: URL.createObjectURL(file),
+      }));
+      setFilePreviews(previews);
     }
   };
 
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.file) {
-      setModalError('Silakan pilih file foto atau video dokumentasi.');
+    if (!selectedFiles || selectedFiles.length === 0) {
+      setModalError('Silakan pilih setidaknya 1 file foto atau video dokumentasi.');
       return;
     }
 
@@ -215,14 +223,17 @@ export default function CampaignDocumentation({ documentations = [], folders = [
 
     const payload = new FormData();
     payload.append('title', formData.title);
-    payload.append('campaign_name', formData.campaign_name);
-    payload.append('location', formData.location);
+    payload.append('campaign_name', formData.campaign_name || (formData.folder_id ? (dbFoldersList.find(f => String(f.id) === String(formData.folder_id))?.name || 'Dokumentasi Kampanye') : 'Dokumentasi Kampanye'));
+    payload.append('location', formData.location || 'Jakarta Raya');
     payload.append('event_date', formData.event_date);
-    payload.append('user_id', formData.user_id);
+    if (formData.user_id) payload.append('user_id', formData.user_id);
     if (formData.folder_id) payload.append('folder_id', formData.folder_id);
-    payload.append('media_type', formData.media_type);
-    payload.append('file', formData.file);
-    payload.append('notes', formData.notes);
+    if (formData.notes) payload.append('notes', formData.notes);
+
+    // Append multiple files
+    selectedFiles.forEach((f) => {
+      payload.append('files[]', f);
+    });
 
     try {
       const response = await axios.post('/api/campaigns', payload, {
@@ -236,25 +247,25 @@ export default function CampaignDocumentation({ documentations = [], folders = [
       });
 
       if (response.data.success) {
-        const newDoc = response.data.documentation;
-        const mappedDoc = {
+        const newDocs = response.data.documentations || [response.data.documentation];
+        const mappedDocs = newDocs.map(newDoc => ({
           id: newDoc.id,
           folder_id: newDoc.folder_id,
           folder_name: newDoc.folder_name,
           title: newDoc.title,
           campaign_name: newDoc.campaign_name,
           location: newDoc.location || 'Jakarta Raya',
-          event_date: new Date(newDoc.event_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }),
-          raw_event_date: newDoc.event_date ? newDoc.event_date.substring(0, 10) : new Date().toISOString().substring(0, 10),
+          event_date: newDoc.event_date || '-',
+          raw_event_date: newDoc.raw_event_date || new Date().toISOString().substring(0, 10),
           media_type: newDoc.media_type,
-          file_url: newDoc.file_path,
-          thumbnail_url: newDoc.thumbnail_path || newDoc.file_path,
+          file_url: newDoc.file_url || newDoc.file_path,
+          thumbnail_url: newDoc.thumbnail_url || newDoc.thumbnail_path || newDoc.file_path,
           notes: newDoc.notes,
-          client_name: clients.find(c => c.id === parseInt(newDoc.user_id))?.name || 'Semua Klien (Publik)',
-          client_id: newDoc.user_id,
-        };
+          client_name: clients.find(c => c.id === parseInt(newDoc.client_id || newDoc.user_id))?.name || 'Semua Klien (Publik)',
+          client_id: newDoc.client_id || newDoc.user_id,
+        }));
 
-        setDocsList([mappedDoc, ...docsList]);
+        setDocsList([...mappedDocs, ...docsList]);
         setIsUploadModalOpen(false);
         showToast(response.data.message || 'Dokumentasi berhasil diunggah!');
       } else {
@@ -262,7 +273,7 @@ export default function CampaignDocumentation({ documentations = [], folders = [
       }
     } catch (error) {
       if (error.response?.status === 413) {
-        setModalError('Ukuran file melebihi batas upload PHP server (413 Payload Too Large).');
+        setModalError('Ukuran file melebihi batas upload PHP server (413 Payload Too Large). Silakan upload lebih sedikit file sekaligus.');
       } else {
         setModalError(error.response?.data?.message || 'Terjadi kesalahan saat mengunggah file.');
       }
@@ -992,16 +1003,24 @@ export default function CampaignDocumentation({ documentations = [], folders = [
             <form onSubmit={handleUploadSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                  Judul Dokumentasi
+                  Judul Dokumentasi (Opsional untuk Upload Masal)
                 </label>
                 <input
                   type="text"
-                  required
-                  placeholder="Contoh: Monitoring Tayangan Siang - Sudirman"
+                  placeholder={
+                    formData.folder_id
+                      ? `Otomatis: "${dbFoldersList.find(f => String(f.id) === String(formData.folder_id))?.name || 'Folder'} - 01", "02", dst.`
+                      : 'Contoh: Monitoring Tayangan Siang - Sudirman'
+                  }
                   value={formData.title}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-bold focus:border-blue-500 focus:bg-white focus:outline-none"
                 />
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {formData.folder_id
+                    ? '💡 Jika dikosongkan, judul akan otomatis mengikuti nama folder dengan nomor urut (01, 02, 03...)'
+                    : '💡 Jika upload banyak file sekaligus, nomor urut (01, 02...) akan ditambahkan otomatis di belakang judul.'}
+                </p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1085,33 +1104,84 @@ export default function CampaignDocumentation({ documentations = [], folders = [
                 </div>
               </div>
 
-              {/* Upload File Media */}
+              {/* Upload Multiple Files Media */}
               <div>
-                <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700 mb-1.5">
-                  File Foto / Video Dokumentasi
-                </label>
-                <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-5 text-center transition-colors bg-slate-50/60 relative cursor-pointer">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-extrabold uppercase tracking-wider text-slate-700">
+                    Pilih File Foto / Video (Bisa Pilih Banyak Sekaligus)
+                  </label>
+                  {selectedFiles.length > 0 && (
+                    <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                      {selectedFiles.length} file dipilih
+                    </span>
+                  )}
+                </div>
+                <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-5 text-center transition-colors bg-slate-50/60 relative cursor-pointer group">
                   <input
                     type="file"
-                    required
+                    required={selectedFiles.length === 0}
+                    multiple
                     accept="image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm"
                     onChange={handleFileSelect}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                   />
                   <div className="flex flex-col items-center justify-center space-y-2">
-                    <UploadCloud className="w-8 h-8 text-blue-500" />
+                    <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
+                      <UploadCloud className="w-6 h-6 text-blue-600" />
+                    </div>
                     <div className="text-xs font-bold text-slate-800">
-                      {formData.file ? formData.file.name : 'Pilih Foto (JPG/PNG) atau Video (MP4/MOV)'}
+                      {selectedFiles.length > 0
+                        ? `${selectedFiles.length} file terpilih (Klik untuk mengganti)`
+                        : 'Klik atau Tarik File ke Sini (Bisa Pilih Banyak Foto / Video Sekaligus)'}
                     </div>
                     <p className="text-[11px] text-slate-400">
-                      Ukuran maksimal file: 150 MB
+                      Format: JPG, PNG, WEBP, MP4, MOV. Ukuran maksimal: 150 MB per file.
                     </p>
                   </div>
                 </div>
 
-                {filePreview && formData.media_type === 'image' && (
-                  <div className="mt-2 p-2 rounded-xl border border-slate-200 bg-white inline-block">
-                    <img src={filePreview} alt="Preview" className="h-24 rounded-lg object-cover" />
+                {/* Previews Grid for Multiple Files */}
+                {filePreviews.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+                      <span>Daftar File yang Akan Diunggah:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedFiles([]);
+                          setFilePreviews([]);
+                        }}
+                        className="text-rose-500 hover:text-rose-700 cursor-pointer normal-case font-bold"
+                      >
+                        Hapus Semua
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-h-48 overflow-y-auto p-1.5 bg-slate-50 border border-slate-200 rounded-2xl">
+                      {filePreviews.map((p, idx) => (
+                        <div
+                          key={idx}
+                          className="bg-white border border-slate-200/80 rounded-xl p-2 flex flex-col items-center text-center relative group shadow-2xs"
+                        >
+                          <div className="w-full aspect-video rounded-lg overflow-hidden bg-slate-950 flex items-center justify-center mb-1.5 relative">
+                            {p.type === 'image' ? (
+                              <img src={p.url} alt={p.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-white">
+                                <Video className="w-5 h-5 text-indigo-400" />
+                                <span className="text-[9px] font-mono mt-0.5">VIDEO</span>
+                              </div>
+                            )}
+                            <span className="absolute top-1 left-1 bg-slate-900/80 text-white font-mono text-[9px] px-1.5 py-0.5 rounded font-bold">
+                              #{String(idx + 1).padStart(2, '0')}
+                            </span>
+                          </div>
+                          <span className="text-[10px] font-bold text-slate-800 truncate w-full" title={p.name}>
+                            {p.name}
+                          </span>
+                          <span className="text-[9px] font-mono text-slate-400">{p.size}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

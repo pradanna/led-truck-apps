@@ -56,7 +56,7 @@ class CctvMonitoringController extends Controller
 
     /**
      * API endpoint: traffic summary hari ini dari database lokal
-     * Digunakan oleh frontend sebagai sumber data traffic cards (bukan NVR API)
+     * Alur: Ambil data dari API NVR jika ada perubahan -> update ke DB lokal -> return
      */
     public function getTrafficFromDb(Request $request)
     {
@@ -90,11 +90,26 @@ class CctvMonitoringController extends Controller
 
     /**
      * API endpoint to get real-time stream & traffic statistics
+     * Alur: Query API NVR -> Simpan/Update ke Database Lokal -> Kembalikan data ke frontend
      */
     public function getStreamData(Request $request)
     {
         $force = $request->boolean('force', false);
         $data = $this->holowits->getLiveMonitoringData($force);
+        $today = today()->toDateString();
+
+        // Update ke Database Lokal dari hasil API NVR
+        if (!empty($data['truck_1']['traffic'])) {
+            $t1Metrics = $data['truck_1']['traffic'];
+            $t1Plate = $data['truck_1']['config']['name'] ?? 'B 9731 JXS';
+            AiTrafficDailyLog::recordTraffic('truck_1', $today, $t1Metrics, $t1Plate);
+        }
+
+        if (!empty($data['truck_2']['traffic'])) {
+            $t2Metrics = $data['truck_2']['traffic'];
+            $t2Plate = $data['truck_2']['config']['name'] ?? 'B 9729 JXS';
+            AiTrafficDailyLog::recordTraffic('truck_2', $today, $t2Metrics, $t2Plate);
+        }
 
         return response()->json([
             'success' => true,
@@ -104,6 +119,7 @@ class CctvMonitoringController extends Controller
 
     /**
      * API endpoint to get CCTV status and feeds for a single truck independently
+     * Alur: Ambil dari API NVR -> Update ke Database Lokal -> Return JSON ke Tampilan
      */
     public function getTruckStreamData(Request $request, string $truckId)
     {
@@ -115,11 +131,26 @@ class CctvMonitoringController extends Controller
             return response()->json(['success' => false, 'message' => 'Truk tidak ditemukan'], 404);
         }
 
+        // 1. Ambil data dari API NVR
         $truckStatus = $this->holowits->queryTruckNvrStatus($truckConfig);
         if (!isset($truckStatus['config'])) {
             $truckStatus['config'] = $truckConfig;
         }
 
+        // 2. Update data AI Traffic ke database lokal
+        if (!empty($truckStatus['traffic'])) {
+            $today = today()->toDateString();
+            $plate = $truckConfig['name'] ?? ($truckId === 'truck_2' ? 'B 9729 JXS' : 'B 9731 JXS');
+            $savedRecord = AiTrafficDailyLog::recordTraffic($truckId, $today, $truckStatus['traffic'], $plate);
+
+            if ($savedRecord) {
+                // Cantumkan data tersimpan di response
+                $truckStatus['traffic']['db_synced'] = true;
+                $truckStatus['traffic']['log_date'] = $today;
+            }
+        }
+
+        // 3. Tampilkan (kembalikan ke frontend)
         return response()->json([
             'success' => true,
             'truck_id' => $truckId,

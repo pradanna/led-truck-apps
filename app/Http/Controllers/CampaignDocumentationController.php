@@ -176,19 +176,21 @@ class CampaignDocumentationController extends Controller
     }
 
     /**
-     * Upload & Store new Campaign Documentation (Admin Only)
+     * Upload & Store new Campaign Documentation (Single or Bulk Files) (Admin Only)
      */
     public function store(Request $request)
     {
         $request->validate([
-            'title' => 'required|string|max:255',
+            'title' => 'nullable|string|max:255',
             'campaign_name' => 'required|string|max:255',
             'location' => 'nullable|string|max:255',
             'event_date' => 'required|date',
             'user_id' => 'nullable|exists:users,id',
             'folder_id' => 'nullable|exists:campaign_folders,id',
-            'media_type' => 'required|in:image,video',
-            'file' => 'required|file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:153600', // 150MB max
+            'media_type' => 'nullable|in:image,video',
+            'file' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:153600', // 150MB max
+            'files' => 'nullable|array',
+            'files.*' => 'file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:153600',
             'notes' => 'nullable|string|max:1000',
         ]);
 
@@ -197,43 +199,118 @@ class CampaignDocumentationController extends Controller
             File::makeDirectory($uploadDir, 0755, true);
         }
 
-        $file = $request->file('file');
-        $extension = strtolower($file->getClientOriginalExtension());
-        $isImage = in_array($extension, ['jpg', 'jpeg', 'png', 'webp']) || str_starts_with($file->getMimeType() ?? '', 'image/');
-
-        if ($isImage) {
-            $fileName = \App\Services\ImageOptimizerService::compressAndSave(
-                $file,
-                $uploadDir,
-                time() . '_' . uniqid() . '.' . $extension,
-                1920,
-                1080,
-                80
-            );
-        } else {
-            $fileName = time() . '_' . uniqid() . '.' . $extension;
-            $file->move($uploadDir, $fileName);
+        // Kumpulkan file: baik dari array 'files' maupun single 'file'
+        $uploadedFiles = [];
+        if ($request->hasFile('files')) {
+            $uploadedFiles = $request->file('files');
+        } elseif ($request->hasFile('file')) {
+            $uploadedFiles = [$request->file('file')];
         }
 
-        $filePath = '/uploads/campaigns/' . $fileName;
+        if (empty($uploadedFiles)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Silakan pilih setidaknya satu file foto atau video untuk diunggah.',
+            ], 422);
+        }
 
-        $doc = CampaignDocumentation::create([
-            'user_id' => $request->filled('user_id') ? $request->input('user_id') : null,
-            'folder_id' => $request->filled('folder_id') ? $request->input('folder_id') : null,
-            'title' => $request->input('title'),
-            'campaign_name' => $request->input('campaign_name'),
-            'location' => $request->input('location'),
-            'event_date' => $request->input('event_date'),
-            'media_type' => $request->input('media_type'),
-            'file_path' => $filePath,
-            'thumbnail_path' => $request->input('media_type') === 'image' ? $filePath : null,
-            'notes' => $request->input('notes'),
-        ]);
+        // Ambil info folder jika ada
+        $folderId = $request->filled('folder_id') ? $request->input('folder_id') : null;
+        $folder = $folderId ? CampaignFolder::find($folderId) : null;
+        $folderName = $folder ? $folder->name : null;
+
+        // Hitung dokumen yang sudah ada di folder untuk penomoran urut lanjutan
+        $existingCount = 0;
+        if ($folderId) {
+            $existingCount = CampaignDocumentation::where('folder_id', $folderId)->count();
+        }
+
+        $baseTitle = trim($request->input('title', ''));
+        $createdDocs = [];
+        $totalFiles = count($uploadedFiles);
+
+        foreach ($uploadedFiles as $index => $file) {
+            $extension = strtolower($file->getClientOriginalExtension());
+            $mime = $file->getMimeType() ?? '';
+            $isImage = in_array($extension, ['jpg', 'jpeg', 'png', 'webp']) || str_starts_with($mime, 'image/');
+            $mediaType = $isImage ? 'image' : 'video';
+
+            if ($isImage) {
+                $fileName = \App\Services\ImageOptimizerService::compressAndSave(
+                    $file,
+                    $uploadDir,
+                    time() . '_' . uniqid() . '.' . $extension,
+                    1920,
+                    1080,
+                    80
+                );
+            } else {
+                $fileName = time() . '_' . uniqid() . '.' . $extension;
+                $file->move($uploadDir, $fileName);
+            }
+
+            $filePath = '/uploads/campaigns/' . $fileName;
+
+            // Generate judul otomatis:
+            // 1. Jika di dalam folder: "[Nama Folder] - [Nomor Urut 2 Digit]" (atau jika baseTitle diisi, gunakan baseTitle + nomor urut)
+            // 2. Jika tanpa folder & upload masal: "[Base Title / Campaign Name] - [Nomor Urut]"
+            // 3. Jika single file & baseTitle diisi: gunakan baseTitle langsung
+            $seqNumber = str_pad($existingCount + $index + 1, 2, '0', STR_PAD_LEFT);
+            if ($folderName) {
+                $docTitle = $baseTitle ?: "{$folderName} - {$seqNumber}";
+                if ($baseTitle && $totalFiles > 1) {
+                    $docTitle = "{$baseTitle} - {$seqNumber}";
+                }
+            } else {
+                if ($totalFiles > 1) {
+                    $prefix = $baseTitle ?: ($request->input('campaign_name') . ' Dokumentasi');
+                    $docTitle = "{$prefix} - {$seqNumber}";
+                } else {
+                    $docTitle = $baseTitle ?: ($request->input('campaign_name') . ' Dokumentasi');
+                }
+            }
+
+            $doc = CampaignDocumentation::create([
+                'user_id' => $request->filled('user_id') ? $request->input('user_id') : ($folder ? $folder->user_id : null),
+                'folder_id' => $folderId,
+                'title' => $docTitle,
+                'campaign_name' => $request->input('campaign_name') ?: ($folder ? $folder->campaign_name : 'Dokumentasi Kampanye'),
+                'location' => $request->input('location') ?: 'Jakarta Raya',
+                'event_date' => $request->input('event_date') ?: ($folder ? $folder->event_date : today()),
+                'media_type' => $mediaType,
+                'file_path' => $filePath,
+                'thumbnail_path' => $mediaType === 'image' ? $filePath : null,
+                'notes' => $request->input('notes'),
+            ]);
+
+            // Format response object agar langsung siap di-render di frontend state
+            $createdDocs[] = [
+                'id' => $doc->id,
+                'folder_id' => $doc->folder_id,
+                'folder_name' => $folderName,
+                'title' => $doc->title,
+                'campaign_name' => $doc->campaign_name,
+                'location' => $doc->location ?? 'Jakarta Raya',
+                'event_date' => $doc->event_date ? $doc->event_date->translatedFormat('d M Y') : '-',
+                'raw_event_date' => $doc->event_date ? $doc->event_date->format('Y-m-d') : null,
+                'media_type' => $doc->media_type,
+                'file_url' => $doc->file_path,
+                'thumbnail_url' => $doc->thumbnail_path ?: $doc->file_path,
+                'notes' => $doc->notes,
+                'client_name' => $doc->client ? $doc->client->name : 'Semua Klien (Publik)',
+                'client_id' => $doc->user_id,
+            ];
+        }
+
+        $message = count($createdDocs) > 1
+            ? count($createdDocs) . ' file dokumentasi berhasil diunggah secara masal!'
+            : 'Dokumentasi kampanye berhasil diunggah dan disimpan!';
 
         return response()->json([
             'success' => true,
-            'message' => 'Dokumentasi kampanye berhasil diunggah dan disimpan!',
-            'documentation' => $doc,
+            'message' => $message,
+            'documentations' => $createdDocs,
+            'documentation' => $createdDocs[0] ?? null,
         ]);
     }
 

@@ -80,37 +80,37 @@ jobs:
             echo "📦 Pulling latest code..."
             git pull --no-rebase origin main
 
-            # ── Composer: jalankan jika vendor/ belum ada ATAU php berubah
+            # ── Composer Dependencies ──────────────────────────────────
             if [ ! -d "vendor" ] || [ "$PHP_CHANGED" -gt "0" ]; then
-              echo "🔧 Running composer install..."
+              echo "🔧 Updating composer dependencies..."
               composer install --no-dev --optimize-autoloader --no-interaction
-              php artisan optimize:clear
             else
-              echo "⏩ vendor/ sudah ada & tidak ada PHP changes - skipping composer"
+              echo "⏩ vendor/ sudah up-to-date"
             fi
 
-            # ── NPM: jalankan jika node_modules/ belum ada ATAU frontend berubah
-            if [ ! -d "node_modules" ] || [ "$FRONTEND_CHANGED" -gt "0" ]; then
-              echo "🎨 Running npm install & build..."
-              npm ci --prefer-offline
-              npm run build
-            else
-              echo "⏩ node_modules/ sudah ada & tidak ada frontend changes - skipping npm"
+            # ── NPM Build (Selalu build aset terbaru untuk produksi) ────
+            echo "🎨 Running npm build..."
+            if [ ! -d "node_modules" ]; then
+              npm ci --prefer-offline || npm install
             fi
+            npm run build
 
             # ── Migrations ──────────────────────────────────────────────
             if [ "$MIGRATIONS_CHANGED" -gt "0" ]; then
-              echo "🗄️  New migrations - running migrate..."
+              echo "🗄️  New migrations detected - running migrate..."
               php artisan migrate --force
             else
-              echo "⏩ No new migrations"
+              echo "⏩ No new migrations detected, running migrate --force if needed..."
+              php artisan migrate --force
             fi
 
-            # ── Cache artisan ───────────────────────────────────────────
-            echo "⚡ Caching config, routes, views..."
+            # ── Cache & Optimize Artisan ────────────────────────────────
+            echo "⚡ Clearing old caches & optimizing Laravel..."
+            php artisan optimize:clear
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
+            php artisan optimize
 
             # Uncomment jika pakai PHP-FPM:
             # sudo systemctl reload php8.2-fpm

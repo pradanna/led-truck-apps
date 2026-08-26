@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/laporan-detail', [\App\Http\Controllers\ReportController::class, 'index'])->name('reports.detail');
     Route::get('/api/report/export-pdf', [\App\Http\Controllers\ReportController::class, 'exportPdf']);
     Route::get('/api/report/export-excel', [\App\Http\Controllers\ReportController::class, 'exportExcel']);
+    Route::post('/api/report/sync-traffic', [\App\Http\Controllers\ReportController::class, 'syncTraffic']);
 
     // =========================================================================
     // ADMIN ONLY ROUTES (EnsureUserIsAdmin middleware)

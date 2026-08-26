@@ -52,12 +52,49 @@ export default function ReportDetail({
     const [dateTo, setDateTo] = useState(filters.date_to || '');
     const [searchMateri, setSearchMateri] = useState('');
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isSyncingTraffic, setIsSyncingTraffic] = useState(false);
+    const [syncToastMessage, setSyncToastMessage] = useState('');
     const [downloadState, setDownloadState] = useState({
         isDownloading: false,
         type: '', // 'PDF' or 'Excel'
         progress: 0,
         message: ''
     });
+
+    const handleSyncTraffic = async () => {
+        if (isSyncingTraffic) return;
+        setIsSyncingTraffic(true);
+        setSyncToastMessage('Menghubungkan ke sensor kamera NVR & menyinkronkan database...');
+
+        try {
+            const response = await fetch('/api/report/sync-traffic', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                },
+                body: JSON.stringify({
+                    date_from: dateFrom,
+                    date_to: dateTo,
+                }),
+            });
+
+            const resData = await response.json();
+            if (resData.success) {
+                setSyncToastMessage(resData.message || 'Sinkronisasi database traffic berhasil!');
+                // Refresh data laporan agar angka terbaru langsung muncul
+                applyFilter(selectedTruck, dateFrom, dateTo, activeTab);
+            } else {
+                setSyncToastMessage(resData.message || 'Sensor kamera belum mendeteksi data baru.');
+            }
+        } catch (error) {
+            setSyncToastMessage('Gagal menyinkronkan traffic. Periksa koneksi jaringan.');
+        } finally {
+            setIsSyncingTraffic(false);
+            setTimeout(() => setSyncToastMessage(''), 4000);
+        }
+    };
 
     const handleDownload = async (type, e) => {
         if (e) e.preventDefault();
@@ -308,13 +345,27 @@ export default function ReportDetail({
                             </button>
                         </div>
 
-                        {/* Export Buttons per active tab */}
+                        {/* Export & Sync Buttons per active tab */}
                         <div className="flex items-center gap-2 mb-2 sm:mb-0 shrink-0">
+                            {/* Tombol Sinkronisasi Database khusus Tab AI Traffic Analytics */}
+                            {activeTab === 'traffic' && (
+                                <button
+                                    type="button"
+                                    onClick={handleSyncTraffic}
+                                    disabled={isSyncingTraffic || isRefreshing}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 transition shadow-xs disabled:opacity-50 cursor-pointer"
+                                    title="Tarik & sinkronkan data traffic dari sensor kamera NVR ke database lokal sesuai tanggal yang dipilih"
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isSyncingTraffic ? 'animate-spin' : ''}`} />
+                                    <span>{isSyncingTraffic ? 'Menyinkronkan...' : 'Sync Database by Tanggal'}</span>
+                                </button>
+                            )}
+
                             <button
                                 type="button"
                                 onClick={(e) => handleDownload('PDF', e)}
                                 disabled={downloadState.isDownloading}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-xs disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition shadow-xs disabled:opacity-50 cursor-pointer"
                                 title="Unduh laporan tab ini dalam format PDF"
                             >
                                 <Download className="w-3.5 h-3.5 text-red-500" />
@@ -324,7 +375,7 @@ export default function ReportDetail({
                                 type="button"
                                 onClick={(e) => handleDownload('Excel', e)}
                                 disabled={downloadState.isDownloading}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition shadow-xs disabled:opacity-50"
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 transition shadow-xs disabled:opacity-50 cursor-pointer"
                                 title="Unduh data tab ini dalam format CSV / Excel"
                             >
                                 <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
@@ -332,6 +383,19 @@ export default function ReportDetail({
                             </button>
                         </div>
                     </div>
+
+                    {/* TOAST FEEDBACK SYNC */}
+                    {syncToastMessage && (
+                        <div className="bg-blue-600 text-white px-4 py-2.5 rounded-xl shadow-lg flex items-center justify-between text-xs font-bold animate-in fade-in duration-200">
+                            <div className="flex items-center gap-2">
+                                <RefreshCw className={`w-4 h-4 ${isSyncingTraffic ? 'animate-spin' : ''}`} />
+                                <span>{syncToastMessage}</span>
+                            </div>
+                            <span className="text-[10px] font-mono opacity-80">
+                                {dateFrom} s/d {dateTo}
+                            </span>
+                        </div>
+                    )}
 
                     {/* REUSABLE DOWNLOAD PROGRESS BAR COMPONENT */}
                     <DownloadProgressBar

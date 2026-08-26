@@ -187,7 +187,7 @@ YAML;
 
             foreach ($urlsToTry as $targetUrl) {
                 try {
-                    $response = Http::timeout(1)
+                    $response = Http::timeout(3.5)
                         ->withoutVerifying()
                         ->post("{$targetUrl}/API/Login/Range", ['version' => '1.0', 'data' => []]);
 
@@ -851,6 +851,106 @@ YAML;
             'success' => true,
             'message' => "Snapshot {$channelKey} berhasil direkam ke galeri.",
             'timestamp' => now()->translatedFormat('d M Y H:i:s') . ' WIB'
+        ];
+    }
+
+    /**
+     * Synchronize AI Traffic data from NVRs into database for a specific date range
+     */
+    public function syncTrafficByDate(string $dateFrom, string $dateTo): array
+    {
+        $configs = $this->getTruckConfigs();
+        $startDate = \Carbon\Carbon::parse($dateFrom);
+        $endDate = \Carbon\Carbon::parse($dateTo);
+        $results = [];
+        $syncedCount = 0;
+
+        for ($d = $startDate->copy(); $d->lte($endDate); $d->addDay()) {
+            $targetDate = $d->format('Y-m-d');
+            $startOfDay = "{$targetDate} 00:00:00";
+            $endOfDay = "{$targetDate} 23:59:59";
+
+            foreach ($configs as $truckId => $truck) {
+                $ip = trim($truck['nvr_ip'] ?? '');
+                $port = (int)($truck['http_port'] ?? 443);
+                $isHttps = in_array($port, [443, 70, 8443]);
+                $baseUrl = ($isHttps ? "https://" : "http://") . "{$ip}:{$port}";
+                $user = $truck['username'] ?? 'admin';
+                $pwd = $truck['password'] ?? '';
+                $plate = $truck['name'] ?? ($truckId === 'truck_2' ? 'B 9729 JXS' : 'B 9731 JXS');
+
+                $trafficData = [
+                    'motorcycles' => 0,
+                    'cars' => 0,
+                    'pedestrians' => 0,
+                    'buses_trucks' => 0,
+                    'estimated_reach' => 0,
+                    'density' => 'LANCAR',
+                ];
+
+                if (!empty($ip)) {
+                    try {
+                        $session = $this->getHolowitsAuthenticatedSession($baseUrl, $user, $pwd);
+                        if ($session) {
+                            $headers = [
+                                'Cookie' => $session['cookie'],
+                                'X-csrftoken' => $session['csrf_token'],
+                            ];
+
+                            // 1. Try ObjectStatistics for date
+                            $statsResp = Http::timeout(5)
+                                ->withoutVerifying()
+                                ->withHeaders($headers)
+                                ->post("{$baseUrl}/API/AI/ObjectStatistics/Get", [
+                                    'version' => '1.0',
+                                    'data' => [
+                                        'Channel' => [1, 2],
+                                        'StartTime' => $startOfDay,
+                                        'EndTime' => $endOfDay,
+                                    ]
+                                ]);
+
+                            if ($statsResp->successful() && isset($statsResp->json()['data'])) {
+                                $statsData = $statsResp->json()['data'];
+                                $motor = (int)(($statsData['Motorcycle'] ?? 0) + ($statsData['Motor'] ?? 0) + ($statsData['TwoWheeler'] ?? 0));
+                                $car = (int)(($statsData['Car'] ?? 0) + ($statsData['Vehicle'] ?? 0) + ($statsData['Automobile'] ?? 0));
+                                $ped = (int)(($statsData['Person'] ?? 0) + ($statsData['Pedestrian'] ?? 0) + ($statsData['People'] ?? 0));
+                                $bus = (int)(($statsData['Bus'] ?? 0) + ($statsData['Truck'] ?? 0) + ($statsData['HeavyVehicle'] ?? 0));
+
+                                if (($motor + $car + $ped + $bus) > 0) {
+                                    $trafficData['motorcycles'] = $motor;
+                                    $trafficData['cars'] = $car;
+                                    $trafficData['pedestrians'] = $ped;
+                                    $trafficData['buses_trucks'] = $bus;
+                                    $trafficData['estimated_reach'] = round(($motor * 1.2) + ($car * 1.8) + $ped);
+                                }
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning("Sync AI Traffic failed for {$truckId} on {$targetDate}: " . $e->getMessage());
+                    }
+                }
+
+                $record = \App\Models\AiTrafficDailyLog::recordTraffic($truckId, $targetDate, $trafficData, $plate);
+                if ($record) {
+                    $syncedCount++;
+                    $results[] = [
+                        'truck_id' => $truckId,
+                        'date' => $targetDate,
+                        'total' => $record->total_traffic,
+                        'reach' => $record->estimated_reach,
+                    ];
+                }
+            }
+        }
+
+        return [
+            'success' => true,
+            'synced_count' => $syncedCount,
+            'records' => $results,
+            'message' => $syncedCount > 0 
+                ? "Berhasil menyinkronkan {$syncedCount} data traffic dari sensor kamera ke database lokal."
+                : "Sensor kamera NVR tidak mendeteksi rekaman baru pada rentang tanggal tersebut.",
         ];
     }
 }

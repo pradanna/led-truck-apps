@@ -609,4 +609,17 @@ class ReportController extends Controller
 
         return response()->stream($callback, 200, $headers);
     }
+
+    /**
+     * API endpoint to manually trigger AI Traffic DB Sync for selected dates
+     */
+    public function syncTraffic(Request $request)
+    {
+        $dateFrom = $request->input('date_from', now()->format('Y-m-d'));
+        $dateTo = $request->input('date_to', now()->format('Y-m-d'));
+
+        $res = $this->holowits->syncTrafficByDate($dateFrom, $dateTo);
+
+        return response()->json($res);
+    }
 }

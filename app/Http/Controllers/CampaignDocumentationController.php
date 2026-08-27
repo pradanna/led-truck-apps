@@ -180,6 +180,28 @@ class CampaignDocumentationController extends Controller
      */
     public function store(Request $request)
     {
+        // Periksa apakah ada upload error pada PHP (misal upload_max_filesize di server produksi)
+        $rawFiles = $request->allFiles();
+        if (isset($rawFiles['files']) && is_array($rawFiles['files'])) {
+            foreach ($rawFiles['files'] as $idx => $f) {
+                if ($f instanceof \Illuminate\Http\UploadedFile && !$f->isValid()) {
+                    $errorCode = $f->getError();
+                    $errorMsg = match ($errorCode) {
+                        UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => "Ukuran file ke-" . ($idx + 1) . " melebihi batas konfigurasi upload server (upload_max_filesize di php.ini hosting/cPanel). Silakan kompres video atau naikkan batas upload server.",
+                        UPLOAD_ERR_PARTIAL => "File ke-" . ($idx + 1) . " hanya terunggah sebagian karena koneksi internet terputus.",
+                        UPLOAD_ERR_NO_TMP_DIR => "Server tidak memiliki folder temporary upload.",
+                        UPLOAD_ERR_CANT_WRITE => "Gagal menulis file ke disk server.",
+                        default => "File ke-" . ($idx + 1) . " gagal diunggah (Error kode {$errorCode})."
+                    };
+                    return response()->json([
+                        'success' => false,
+                        'message' => $errorMsg,
+                        'errors' => ['files' => [$errorMsg]],
+                    ], 422);
+                }
+            }
+        }
+
         $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'title' => 'nullable|string|max:255',
             'campaign_name' => 'required|string|max:255',
@@ -197,6 +219,8 @@ class CampaignDocumentationController extends Controller
             'event_date.required' => 'Tanggal dokumentasi wajib dipilih.',
             'files.*.max' => 'Ukuran file terlalu besar. Maksimal 200 MB per file.',
             'file.max' => 'Ukuran file terlalu besar. Maksimal 200 MB.',
+            'files.*.uploaded' => 'File gagal diunggah. Ukuran file melebihi batas upload server live (upload_max_filesize di cPanel/PHP Hosting).',
+            'file.uploaded' => 'File gagal diunggah. Ukuran file melebihi batas upload server live (upload_max_filesize di cPanel/PHP Hosting).',
         ]);
 
         // Custom validation untuk ekstensi file yang diizinkan (JPG, PNG, WEBP, MP4, MOV, M4V, AVI, WEBM, MKV)

@@ -180,7 +180,7 @@ class CampaignDocumentationController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validator = \Illuminate\Support\Facades\Validator::make($request->all(), [
             'title' => 'nullable|string|max:255',
             'campaign_name' => 'required|string|max:255',
             'location' => 'nullable|string|max:255',
@@ -188,11 +188,46 @@ class CampaignDocumentationController extends Controller
             'user_id' => 'nullable|exists:users,id',
             'folder_id' => 'nullable|exists:campaign_folders,id',
             'media_type' => 'nullable|in:image,video',
-            'file' => 'nullable|file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:153600', // 150MB max
+            'file' => 'nullable|file|max:204800', // 200MB max
             'files' => 'nullable|array',
-            'files.*' => 'file|mimes:jpg,jpeg,png,webp,mp4,mov,webm|max:153600',
+            'files.*' => 'file|max:204800',
             'notes' => 'nullable|string|max:1000',
+        ], [
+            'campaign_name.required' => 'Nama kampanye wajib diisi.',
+            'event_date.required' => 'Tanggal dokumentasi wajib dipilih.',
+            'files.*.max' => 'Ukuran file terlalu besar. Maksimal 200 MB per file.',
+            'file.max' => 'Ukuran file terlalu besar. Maksimal 200 MB.',
         ]);
+
+        // Custom validation untuk ekstensi file yang diizinkan (JPG, PNG, WEBP, MP4, MOV, M4V, AVI, WEBM, MKV)
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp', 'mp4', 'mov', 'm4v', 'avi', 'webm', 'mkv'];
+        
+        $validator->after(function ($validator) use ($request, $allowedExtensions) {
+            $filesToCheck = [];
+            if ($request->hasFile('files')) {
+                $filesToCheck = $request->file('files');
+            } elseif ($request->hasFile('file')) {
+                $filesToCheck = [$request->file('file')];
+            }
+
+            foreach ($filesToCheck as $file) {
+                if ($file && $file->isValid()) {
+                    $ext = strtolower($file->getClientOriginalExtension());
+                    if (!in_array($ext, $allowedExtensions)) {
+                        $validator->errors()->add('files', "Format file .{$ext} tidak didukung. Gunakan format foto (JPG, PNG, WEBP) atau video (MP4, MOV, M4V, AVI, WEBM).");
+                        break;
+                    }
+                }
+            }
+        });
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         $uploadDir = public_path('uploads/campaigns');
         if (!File::exists($uploadDir)) {

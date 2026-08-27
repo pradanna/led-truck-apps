@@ -273,9 +273,13 @@ export default function CampaignDocumentation({ documentations = [], folders = [
       }
     } catch (error) {
       if (error.response?.status === 413) {
-        setModalError('Ukuran file melebihi batas upload PHP server (413 Payload Too Large). Silakan upload lebih sedikit file sekaligus.');
+        setModalError('Ukuran file melebihi batas upload server (413 Payload Too Large). Silakan upload lebih sedikit file sekaligus.');
+      } else if (error.response?.status === 422) {
+        const errorMsg = error.response?.data?.message || 
+          (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(', ') : 'Data yang diisi belum lengkap atau format file tidak sesuai.');
+        setModalError(errorMsg);
       } else {
-        setModalError(error.response?.data?.message || 'Terjadi kesalahan saat mengunggah file.');
+        setModalError(error.response?.data?.message || 'Terjadi kendala saat memproses unggahan file ke server.');
       }
     } finally {
       setIsSubmitting(false);
